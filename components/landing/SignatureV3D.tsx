@@ -1,0 +1,215 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+
+interface SignatureV3DProps {
+  variant: 'hero' | 'footer';
+}
+
+export default function SignatureV3D({ variant }: SignatureV3DProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(0, 0, 5);
+
+    function resize() {
+      const rect = canvas!.getBoundingClientRect();
+      const w = rect.width, h = rect.height;
+      if (w === 0 || h === 0) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Build V shape
+    function buildLogoV() {
+      const shape = new THREE.Shape();
+      const w = 0.18;
+      const halfW = 0.7;
+      const halfH = 0.95;
+
+      shape.moveTo(-halfW, halfH);
+      shape.lineTo(0, -halfH);
+      shape.lineTo(halfW, halfH);
+      shape.lineTo(halfW - w * 1.4, halfH);
+      shape.lineTo(0, -halfH + w * 1.6);
+      shape.lineTo(-halfW + w * 1.4, halfH);
+      shape.lineTo(-halfW, halfH);
+
+      const extrudeSettings = {
+        depth: 0.35,
+        bevelEnabled: true,
+        bevelThickness: 0.04,
+        bevelSize: 0.04,
+        bevelSegments: 2,
+        curveSegments: 6,
+      };
+
+      const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      geom.center();
+      return geom;
+    }
+
+    const logoGeom = buildLogoV();
+    const logoGroup = new THREE.Group();
+
+    const ambient = new THREE.AmbientLight(0x6e5040, 0.45);
+    scene.add(ambient);
+
+    const keyLight = new THREE.DirectionalLight(0xfff5e8, 1.1);
+    keyLight.position.set(3, 2, 4);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xb8826b, 0.35);
+    rimLight.position.set(-3, -1, -2);
+    scene.add(rimLight);
+
+    const meshMat = new THREE.MeshStandardMaterial({
+      color: 0xf0e0d0,
+      metalness: 0.4,
+      roughness: 0.55,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const meshV = new THREE.Mesh(logoGeom, meshMat);
+    logoGroup.add(meshV);
+
+    const edgesGeom = new THREE.EdgesGeometry(logoGeom, 20);
+    const edgesMat = new THREE.LineBasicMaterial({
+      color: 0xd8c8b8,
+      transparent: true,
+      opacity: 0.9,
+    });
+    const edgesV = new THREE.LineSegments(edgesGeom, edgesMat);
+    logoGroup.add(edgesV);
+
+    logoGroup.scale.set(1.5, 1.5, 1.5);
+    scene.add(logoGroup);
+
+    // Rotation choreography
+    const V_MIN = 0.18;
+    const V_MAX = 4.5;
+    const SPEED_K = 3.0;
+
+    let angleY = 0;
+    let lastTime = performance.now();
+
+    // Shimmer sync
+    const sigWrap = wrapRef.current;
+    let shimmerPos = -20;
+    let shimmerOpacity = 0;
+    let shimmerActive = false;
+    let prevAccel = false;
+
+    const startTime = performance.now();
+    let animId: number;
+
+    function tick() {
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      const facing = Math.abs(Math.cos(angleY));
+      const t01 = Math.pow(1 - facing, SPEED_K);
+      const omega = V_MIN + (V_MAX - V_MIN) * t01;
+
+      angleY += omega * dt;
+
+      logoGroup.rotation.y = angleY;
+      const tAbs = (now - startTime) * 0.001;
+      logoGroup.rotation.x = Math.sin(tAbs * 0.4) * 0.18;
+      logoGroup.rotation.z = Math.sin(tAbs * 0.3) * 0.04;
+
+      // Fade when sideways
+      const visibility = (() => {
+        if (facing >= 0.5) return 1;
+        if (facing <= 0.15) return 0;
+        const t = (facing - 0.15) / (0.5 - 0.15);
+        return t * t * (3 - 2 * t);
+      })();
+      meshMat.opacity = 0.85 * visibility;
+      edgesMat.opacity = 0.9 * visibility;
+
+      // Shimmer
+      if (sigWrap) {
+        const isAccel = t01 > 0.4;
+
+        if (isAccel && !prevAccel) {
+          shimmerPos = -20;
+          shimmerActive = true;
+        }
+        prevAccel = isAccel;
+
+        if (shimmerActive) {
+          shimmerPos += (60 + t01 * 220) * dt;
+
+          const progress = (shimmerPos + 20) / 140;
+          const bell = Math.sin(Math.max(0, Math.min(1, progress)) * Math.PI);
+          shimmerOpacity = bell;
+
+          if (shimmerPos >= 120) {
+            shimmerActive = false;
+            shimmerOpacity = 0;
+          }
+        }
+
+        sigWrap.style.setProperty('--shimmer-pos', shimmerPos.toFixed(1) + '%');
+        sigWrap.style.setProperty('--shimmer-opacity', shimmerOpacity.toFixed(3));
+      }
+
+      renderer.render(scene, camera);
+      animId = requestAnimationFrame(tick);
+    }
+    tick();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animId);
+      logoGeom.dispose();
+      meshMat.dispose();
+      edgesGeom.dispose();
+      edgesMat.dispose();
+      renderer.dispose();
+    };
+  }, [variant]);
+
+  const signatureClass = variant === 'hero' ? 'signature signature-hero' : 'signature signature-footer';
+
+  return (
+    <div className={signatureClass}>
+      <canvas
+        className="signature-canvas"
+        ref={canvasRef}
+      />
+      <div className="signature-svg-wrap" ref={wrapRef}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/signatures/signature-no-v.svg"
+          alt="Assinatura Valmir Veronez"
+          className="hand-signature-svg"
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/signatures/signature-no-v.svg"
+          alt=""
+          className="hand-signature-svg shimmer"
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  );
+}
