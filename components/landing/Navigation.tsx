@@ -2,7 +2,7 @@
 
 export default function Navigation() {
   return (
-    <nav>
+    <nav className="landing-nav">
       <a href="#" className="brand-logo" aria-label="VVeronez.Dev">
         <span className="brand-wordmark">
           <span className="brand-vv">VV</span>
@@ -38,6 +38,7 @@ export default function Navigation() {
         <a href="#servicos">Serviços</a>
         <a href="#projetos">Projetos</a>
         <a href="#contato">Contato</a>
+        <a href="/dashboard" className="admin-entry" aria-label="Painel administrativo">◈</a>
       </div>
     </nav>
   );

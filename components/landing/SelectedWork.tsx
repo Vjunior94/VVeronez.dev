@@ -15,22 +15,27 @@ export default function SelectedWork() {
   const [modalIndex, setModalIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
+  // Hero case: E-commerce com Inteligência Financeira
   const heroIdx = projects.findIndex((p) => p.hero);
   const heroProject = heroIdx >= 0 ? projects[heroIdx] : projects[0];
   const heroProjectIdx = heroIdx >= 0 ? heroIdx : 0;
 
-  // 4 secondary projects (non-hero, in order)
+  // 2 secondary projects shown initially (by title)
+  const featuredTitles = [
+    'Plataforma de Treinos Personalizados',
+    'Agente de Atendimento Comercial',
+  ];
   const secondaryProjects: { project: Project; originalIdx: number }[] = [];
-  for (let i = 0; i < projects.length && secondaryProjects.length < 4; i++) {
-    if (i !== heroProjectIdx) {
-      secondaryProjects.push({ project: projects[i], originalIdx: i });
-    }
+  for (const title of featuredTitles) {
+    const idx = projects.findIndex((p) => p.titulo === title);
+    if (idx >= 0) secondaryProjects.push({ project: projects[idx], originalIdx: idx });
   }
 
-  // Reserve projects
+  // Reserve: all remaining projects
+  const featuredIdxs = new Set([heroProjectIdx, ...secondaryProjects.map((s) => s.originalIdx)]);
   const reserveProjects: { project: Project; originalIdx: number }[] = [];
   for (let i = 0; i < projects.length; i++) {
-    if (i !== heroProjectIdx && !secondaryProjects.find((s) => s.originalIdx === i)) {
+    if (!featuredIdxs.has(i)) {
       reserveProjects.push({ project: projects[i], originalIdx: i });
     }
   }

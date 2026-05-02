@@ -7,7 +7,6 @@ export default function CustomCursor() {
   const ringRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only activate on devices with hover capability
     const hasHover = window.matchMedia('(hover: hover)').matches;
     if (!hasHover) return;
 
@@ -16,12 +15,20 @@ export default function CustomCursor() {
     if (!dot || !ring) return;
 
     let mx = 0, my = 0, rx = 0, ry = 0;
+    let hasFirstMove = false;
 
     const onMouseMove = (e: MouseEvent) => {
       mx = e.clientX;
       my = e.clientY;
       dot.style.left = mx + 'px';
       dot.style.top = my + 'px';
+
+      // No primeiro movimento, revela os elementos
+      if (!hasFirstMove) {
+        hasFirstMove = true;
+        dot.style.opacity = '1';
+        ring.style.opacity = '1';
+      }
     };
 
     let animId: number;
@@ -37,7 +44,6 @@ export default function CustomCursor() {
     document.addEventListener('mousemove', onMouseMove);
     animId = requestAnimationFrame(animateRing);
 
-    // Expand on interactive elements
     const expandTargets = 'a, button, .hero-case, .case-card, input, textarea';
     const onEnter = () => ring.classList.add('expand');
     const onLeave = () => ring.classList.remove('expand');
@@ -52,7 +58,6 @@ export default function CustomCursor() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial bind
     document.querySelectorAll(expandTargets).forEach((el) => {
       el.addEventListener('mouseenter', onEnter);
       el.addEventListener('mouseleave', onLeave);
@@ -67,8 +72,8 @@ export default function CustomCursor() {
 
   return (
     <>
-      <div className="cursor-dot" ref={dotRef} />
-      <div className="cursor-ring" ref={ringRef} />
+      <div className="cursor-dot" ref={dotRef} style={{ opacity: 0, transition: 'opacity 0.2s' }} />
+      <div className="cursor-ring" ref={ringRef} style={{ opacity: 0, transition: 'opacity 0.2s' }} />
     </>
   );
 }

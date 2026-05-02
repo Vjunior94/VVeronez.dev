@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import {
+  WebGLRenderer,
+  Scene,
+  OrthographicCamera,
+  Vector2,
+  Color,
+  PlaneGeometry,
+  ShaderMaterial,
+  Mesh,
+} from 'three';
 
 export default function HeroBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -10,11 +19,11 @@ export default function HeroBackground() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const scene = new Scene();
+    const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     function resize() {
       const parent = canvas!.parentElement;
@@ -29,13 +38,13 @@ export default function HeroBackground() {
 
     const uniforms = {
       uTime: { value: 0 },
-      uResolution: { value: new THREE.Vector2(1, 1) },
-      uMouse: { value: new THREE.Vector2(0.5, 0.5) },
-      uColor1: { value: new THREE.Color(0xb8826b) },
-      uColor2: { value: new THREE.Color(0xd8a890) },
-      uColor3: { value: new THREE.Color(0x6e3850) },
-      uColor4: { value: new THREE.Color(0xc8839a) },
-      uBgColor: { value: new THREE.Color(0x0a0e1c) },
+      uResolution: { value: new Vector2(1, 1) },
+      uMouse: { value: new Vector2(0.5, 0.5) },
+      uColor1: { value: new Color(0xb8826b) },
+      uColor2: { value: new Color(0xd8a890) },
+      uColor3: { value: new Color(0x6e3850) },
+      uColor4: { value: new Color(0xc8839a) },
+      uBgColor: { value: new Color(0x0a0e1c) },
     };
 
     const vertexShader = `
@@ -150,13 +159,13 @@ export default function HeroBackground() {
       }
     `;
 
-    const quadGeom = new THREE.PlaneGeometry(2, 2);
-    const quadMat = new THREE.ShaderMaterial({
+    const quadGeom = new PlaneGeometry(2, 2);
+    const quadMat = new ShaderMaterial({
       uniforms,
       vertexShader,
       fragmentShader,
     });
-    const quad = new THREE.Mesh(quadGeom, quadMat);
+    const quad = new Mesh(quadGeom, quadMat);
     scene.add(quad);
 
     resize();

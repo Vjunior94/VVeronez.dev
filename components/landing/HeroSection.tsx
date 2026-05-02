@@ -17,7 +17,7 @@ export default function HeroSection() {
       <div className="hero-content">
         <div className="hero-tag">Engenharia · IA Agêntica · Produtos Digitais</div>
         <h1 className="hero-title">
-          <span className="outline">Engenharia de Software</span>
+          <span className="solid">Engenharia de Software</span>
           <br />
           para <span className="gold">solução de problemas</span>.
         </h1>
@@ -38,8 +38,6 @@ export default function HeroSection() {
 
         <SignatureV3D variant="hero" />
       </div>
-
-      <div className="scroll-hint">Scroll</div>
     </section>
   );
 }

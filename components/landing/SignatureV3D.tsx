@@ -1,7 +1,23 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import { useEffect, useRef, useState } from 'react';
+import {
+  WebGLRenderer,
+  Scene,
+  PerspectiveCamera,
+  Shape,
+  ExtrudeGeometry,
+  Group,
+  AmbientLight,
+  DirectionalLight,
+  MeshStandardMaterial,
+  Mesh,
+  EdgesGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  DoubleSide,
+} from 'three';
+import HandSignatureSVG from './HandSignatureSVG';
 
 interface SignatureV3DProps {
   variant: 'hero' | 'footer';
@@ -10,16 +26,38 @@ interface SignatureV3DProps {
 export default function SignatureV3D({ variant }: SignatureV3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(variant === 'hero');
+
+  // For footer variant, only init Three.js when visible
+  useEffect(() => {
+    if (variant === 'hero') return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [variant]);
 
   useEffect(() => {
+    if (!isVisible) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    const scene = new Scene();
+    const camera = new PerspectiveCamera(40, 1, 0.1, 100);
     camera.position.set(0, 0, 5);
 
     function resize() {
@@ -33,9 +71,8 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
     resize();
     window.addEventListener('resize', resize);
 
-    // Build V shape
     function buildLogoV() {
-      const shape = new THREE.Shape();
+      const shape = new Shape();
       const w = 0.18;
       const halfW = 0.7;
       const halfH = 0.95;
@@ -48,59 +85,56 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
       shape.lineTo(-halfW + w * 1.4, halfH);
       shape.lineTo(-halfW, halfH);
 
-      const extrudeSettings = {
+      const geom = new ExtrudeGeometry(shape, {
         depth: 0.35,
         bevelEnabled: true,
         bevelThickness: 0.04,
         bevelSize: 0.04,
         bevelSegments: 2,
         curveSegments: 6,
-      };
-
-      const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      });
       geom.center();
       return geom;
     }
 
     const logoGeom = buildLogoV();
-    const logoGroup = new THREE.Group();
+    const logoGroup = new Group();
 
-    const ambient = new THREE.AmbientLight(0x6e5040, 0.45);
+    const ambient = new AmbientLight(0x6e5040, 0.45);
     scene.add(ambient);
 
-    const keyLight = new THREE.DirectionalLight(0xfff5e8, 1.1);
+    const keyLight = new DirectionalLight(0xfff5e8, 1.1);
     keyLight.position.set(3, 2, 4);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xb8826b, 0.35);
+    const rimLight = new DirectionalLight(0xb8826b, 0.35);
     rimLight.position.set(-3, -1, -2);
     scene.add(rimLight);
 
-    const meshMat = new THREE.MeshStandardMaterial({
+    const meshMat = new MeshStandardMaterial({
       color: 0xf0e0d0,
       metalness: 0.4,
       roughness: 0.55,
       transparent: true,
       opacity: 0.85,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
       depthWrite: false,
     });
-    const meshV = new THREE.Mesh(logoGeom, meshMat);
+    const meshV = new Mesh(logoGeom, meshMat);
     logoGroup.add(meshV);
 
-    const edgesGeom = new THREE.EdgesGeometry(logoGeom, 20);
-    const edgesMat = new THREE.LineBasicMaterial({
+    const edgesGeom = new EdgesGeometry(logoGeom, 20);
+    const edgesMat = new LineBasicMaterial({
       color: 0xd8c8b8,
       transparent: true,
       opacity: 0.9,
     });
-    const edgesV = new THREE.LineSegments(edgesGeom, edgesMat);
+    const edgesV = new LineSegments(edgesGeom, edgesMat);
     logoGroup.add(edgesV);
 
     logoGroup.scale.set(1.5, 1.5, 1.5);
     scene.add(logoGroup);
 
-    // Rotation choreography
     const V_MIN = 0.18;
     const V_MAX = 4.5;
     const SPEED_K = 3.0;
@@ -108,7 +142,6 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
     let angleY = 0;
     let lastTime = performance.now();
 
-    // Shimmer sync
     const sigWrap = wrapRef.current;
     let shimmerPos = -20;
     let shimmerOpacity = 0;
@@ -134,19 +167,17 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
       logoGroup.rotation.x = Math.sin(tAbs * 0.4) * 0.18;
       logoGroup.rotation.z = Math.sin(tAbs * 0.3) * 0.04;
 
-      // Fade when sideways
       const visibility = (() => {
-        if (facing >= 0.5) return 1;
-        if (facing <= 0.15) return 0;
-        const t = (facing - 0.15) / (0.5 - 0.15);
-        return t * t * (3 - 2 * t);
+        if (facing >= 0.4) return 1;
+        if (facing <= 0.08) return 0.15;
+        const t = (facing - 0.08) / (0.4 - 0.08);
+        return 0.15 + 0.85 * t * t * (3 - 2 * t);
       })();
       meshMat.opacity = 0.85 * visibility;
       edgesMat.opacity = 0.9 * visibility;
 
-      // Shimmer
       if (sigWrap) {
-        const isAccel = t01 > 0.4;
+        const isAccel = t01 > 0.3;
 
         if (isAccel && !prevAccel) {
           shimmerPos = -20;
@@ -155,11 +186,12 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
         prevAccel = isAccel;
 
         if (shimmerActive) {
-          shimmerPos += (60 + t01 * 220) * dt;
+          shimmerPos += (45 + t01 * 160) * dt;
 
           const progress = (shimmerPos + 20) / 140;
-          const bell = Math.sin(Math.max(0, Math.min(1, progress)) * Math.PI);
-          shimmerOpacity = bell;
+          const clamped = Math.max(0, Math.min(1, progress));
+          const bell = Math.sin(clamped * Math.PI);
+          shimmerOpacity = bell * bell * 0.85 + bell * 0.15;
 
           if (shimmerPos >= 120) {
             shimmerActive = false;
@@ -185,30 +217,19 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
       edgesMat.dispose();
       renderer.dispose();
     };
-  }, [variant]);
+  }, [variant, isVisible]);
 
   const signatureClass = variant === 'hero' ? 'signature signature-hero' : 'signature signature-footer';
 
   return (
-    <div className={signatureClass}>
+    <div className={signatureClass} ref={containerRef}>
       <canvas
         className="signature-canvas"
         ref={canvasRef}
       />
       <div className="signature-svg-wrap" ref={wrapRef}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/signatures/signature-no-v.svg"
-          alt="Assinatura Valmir Veronez"
-          className="hand-signature-svg"
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/signatures/signature-no-v.svg"
-          alt=""
-          className="hand-signature-svg shimmer"
-          aria-hidden="true"
-        />
+        <HandSignatureSVG className="hand-signature-svg" />
+        <HandSignatureSVG className="hand-signature-svg shimmer" ariaHidden />
       </div>
     </div>
   );
