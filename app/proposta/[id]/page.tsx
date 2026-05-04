@@ -512,17 +512,17 @@ export default function PropostaPublicaPage() {
                 <div className="re-list-note">Esses itens podem ser orçados separadamente.</div>
               </div>
 
-              {/* g) CTA */}
+              {/* g) CTA → scroll to details */}
               <div className="re-action">
                 <p className="re-action-text">{re.proximo_passo.texto}</p>
-                <a href={re.proximo_passo.link_ou_contato} className="re-action-btn" target="_blank" rel="noopener">
-                  {re.proximo_passo.tipo_acao === 'whatsapp' ? 'Chamar no WhatsApp →' : re.proximo_passo.tipo_acao === 'email' ? 'Enviar e-mail →' : 'Aceitar proposta →'}
+                <a href="#detalhes-proposta" className="re-action-btn" onClick={e => { e.preventDefault(); document.getElementById('detalhes-proposta')?.scrollIntoView({ behavior: 'smooth' }); }}>
+                  Detalhes da proposta ↓
                 </a>
               </div>
             </section>
 
             {/* ═══ DIVIDER ═══ */}
-            <div className="details-divider">
+            <div id="detalhes-proposta" className="details-divider">
               <div className="details-divider-line" />
               <div className="details-divider-center">
                 <span className="details-divider-label">Detalhes da proposta</span>
