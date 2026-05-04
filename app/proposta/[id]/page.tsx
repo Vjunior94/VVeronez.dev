@@ -409,7 +409,7 @@ export default function PropostaPublicaPage() {
         <h2 className="cta-title">{ctaTitulo.split('\n').map((l: string, i: number) => <span key={i}>{l}{i < ctaTitulo.split('\n').length - 1 && <br />}</span>)}</h2>
         <p className="cta-sub">{ctaTexto}</p>
         <div className="cta-btns">
-          <a href="https://wa.me/5543920004252?text=Ol%C3%A1%20Valmir%2C%20quero%20avan%C3%A7ar%20com%20a%20proposta!" className="cta-btn-primary" target="_blank" rel="noopener">
+          <a href="https://wa.me/5543988569827?text=Ol%C3%A1%20Valmir%2C%20quero%20avan%C3%A7ar%20com%20a%20proposta!" className="cta-btn-primary" target="_blank" rel="noopener">
             Fechar proposta via WhatsApp →
           </a>
         </div>

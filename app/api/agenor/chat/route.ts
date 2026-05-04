@@ -80,7 +80,7 @@ REGRA ABSOLUTA: NUNCA inclua apps nativos, React Native, Expo, Flutter, Google P
     "proximo_passo": {
       "texto": "UMA frase de CTA. Ex: 'Para aceitar, me chame no WhatsApp.'",
       "tipo_acao": "whatsapp",
-      "link_ou_contato": "https://wa.me/5543920004252"
+      "link_ou_contato": "https://wa.me/5543988569827"
     }
   },
   "tema": {
