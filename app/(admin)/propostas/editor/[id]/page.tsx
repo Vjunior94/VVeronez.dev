@@ -22,6 +22,18 @@ interface ResumoExecutivo {
   proximo_passo: { texto: string; tipo_acao: 'whatsapp' | 'aceite_link' | 'email'; link_ou_contato: string };
 }
 
+interface Tema {
+  cor_primaria?: string;
+  cor_fundo?: string;
+  cor_fundo_card?: string;
+  cor_texto?: string;
+  cor_accent?: string;
+  cor_muted?: string;
+  fonte_titulo?: string;
+  fonte_corpo?: string;
+  border_radius?: string;
+}
+
 interface ConteudoPagina {
   hero_titulo: string;
   hero_subtitulo: string;
@@ -43,6 +55,7 @@ interface ConteudoPagina {
   senha_acesso: string;
   validade_dias: number;
   resumo_executivo?: ResumoExecutivo;
+  tema?: Tema;
 }
 
 interface Message {
@@ -403,6 +416,15 @@ export default function PropostaEditorPage() {
   // ─── Preview data ──────────────────────────────────────────────────
 
   const c = conteudo;
+  const tema = (c.tema || {}) as Tema;
+  const previewTemaVars = [
+    tema.cor_primaria && `--bronze: ${tema.cor_primaria}`,
+    tema.cor_fundo && `--bg: ${tema.cor_fundo}`,
+    tema.cor_fundo_card && `--bg2: ${tema.cor_fundo_card}`,
+    tema.cor_texto && `--text: ${tema.cor_texto}`,
+    tema.cor_accent && `--bronze2: ${tema.cor_accent}`,
+    tema.cor_muted && `--muted: ${tema.cor_muted}`,
+  ].filter(Boolean).join('; ');
   const displayModulos = c.modulos || [];
   const fases = ['mvp', 'v1', 'v2'];
   const modulosByFase = fases.map(f => ({ fase: f, mods: displayModulos.filter(m => m.fase === f) })).filter(g => g.mods.length > 0);
@@ -618,6 +640,7 @@ export default function PropostaEditorPage() {
           position: 'relative',
         }}>
           <style>{previewCSS}</style>
+          {previewTemaVars && <style>{`.prop-page { ${previewTemaVars}; }`}</style>}
           <div className="prop-page">
             {/* Nav */}
             <div style={{

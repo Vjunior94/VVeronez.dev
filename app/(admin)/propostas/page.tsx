@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil } from 'lucide-react';
 
 interface PropostaPublicada {
   id: string;
@@ -118,6 +118,14 @@ export default function PropostasPublicadasPage() {
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                        <a href={`/propostas/editor/${p.id}`} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          background: 'rgba(212,160,74,0.1)', border: '1px solid rgba(212,160,74,0.25)',
+                          color: 'var(--gold-300)', padding: '0.35rem 0.7rem', fontSize: '0.68rem',
+                          textDecoration: 'none', fontFamily: "var(--font-jetbrains)",
+                        }}>
+                          <Pencil size={12} /> Editar
+                        </a>
                         <button onClick={() => handleCopy(p.id)} style={{
                           display: 'flex', alignItems: 'center', gap: '0.3rem',
                           background: 'none', border: '1px solid var(--border-subtle)',

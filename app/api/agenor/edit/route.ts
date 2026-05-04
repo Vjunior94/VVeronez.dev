@@ -68,14 +68,33 @@ SEMPRE responda com:
     "o_que_voce_recebe": string[] (4-6 benefícios em linguagem do cliente, NÃO features técnicas),
     "o_que_nao_esta_incluso": string[] (2-4 itens, OBRIGATÓRIO),
     "proximo_passo": { "texto": string, "tipo_acao": "whatsapp"|"aceite_link"|"email", "link_ou_contato": string }
+  },
+  "tema": {
+    "cor_primaria": string (hex, cor principal/accent, default "#c8826b"),
+    "cor_fundo": string (hex, fundo da pagina, default "#0d0c14"),
+    "cor_fundo_card": string (hex, fundo dos cards, default "#161424"),
+    "cor_texto": string (hex, texto principal, default "#ddd8d2"),
+    "cor_accent": string (hex, cor secundaria/destaque, default "#e0a890"),
+    "cor_muted": string (hex, texto secundario, default "#8a8494"),
+    "fonte_titulo": string (nome da fonte para titulos, ex: "Cinzel", "Playfair Display", "Cormorant Garamond"),
+    "fonte_corpo": string (nome da fonte para corpo, ex: "system-ui", "Georgia", "Inter"),
+    "border_radius": string (ex: "14px", "0px", "24px", "8px")
   }
 }
 
+IMPORTANTE sobre tema:
+- Todos os campos sao OPCIONAIS. Se o Valmir nao pedir mudanca visual, NAO inclua o objeto tema.
+- Se o Valmir pedir "mais arredondado", aumente border_radius. Se pedir "mais reto/angular", coloque "0px".
+- Se pedir "mais claro", clareie cor_fundo e cor_fundo_card. Se pedir "mais escuro", escureca.
+- Se pedir outra fonte, use fontes do Google Fonts (Cinzel, Playfair Display, Cormorant Garamond, Lora, Merriweather, Inter, DM Sans, etc).
+- Cores SEMPRE em hex (#rrggbb). Nunca rgb(), hsl() ou nomes.
+- Ao alterar cor_primaria, ajuste cor_accent para um tom mais claro da mesma familia.
+
 IMPORTANTE sobre resumo_executivo:
 - Linguagem 100% leiga. PWA → "app no celular sem baixar". API/Backend/Supabase → NÃO aparece.
-- Benefícios, não features. "Login seguro para seus alunos" em vez de "Supabase Auth com RLS".
-- o_que_nao_esta_incluso é OBRIGATÓRIO mesmo se nada óbvio se aplica.
-- Tom: segunda pessoa, caloroso, frases curtas, zero clichês corporativos.`;
+- Beneficios, nao features. "Login seguro para seus alunos" em vez de "Supabase Auth com RLS".
+- o_que_nao_esta_incluso e OBRIGATORIO mesmo se nada obvio se aplica.
+- Tom: segunda pessoa, caloroso, frases curtas, zero cliches corporativos.`;
 
 export async function POST(req: NextRequest) {
   const { messages, conteudoPagina } = await req.json();

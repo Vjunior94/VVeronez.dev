@@ -20,6 +20,18 @@ interface Proposta {
 interface Modulo { id: string; nome: string; descricao: string; horas_estimadas: number; fase: string; ordem: number; }
 interface Servico { id: string; nome: string; descricao: string; custo_mensal_centavos: number; }
 
+interface Tema {
+  cor_primaria?: string;
+  cor_fundo?: string;
+  cor_fundo_card?: string;
+  cor_texto?: string;
+  cor_accent?: string;
+  cor_muted?: string;
+  fonte_titulo?: string;
+  fonte_corpo?: string;
+  border_radius?: string;
+}
+
 interface ResumoExecutivo {
   saudacao: string;
   tipo_projeto: string;
@@ -131,6 +143,25 @@ export default function PropostaPublicaPage() {
 
   const c = conteudo;
   const re = c?.resumo_executivo as ResumoExecutivo | undefined;
+  const tema = (c?.tema || {}) as Tema;
+
+  // Generate CSS variable overrides from tema
+  const temaCSS = [
+    tema.cor_primaria && `--bronze: ${tema.cor_primaria}; --bronze2: ${tema.cor_accent || tema.cor_primaria};`,
+    tema.cor_fundo && `--bg: ${tema.cor_fundo};`,
+    tema.cor_fundo_card && `--bg2: ${tema.cor_fundo_card};`,
+    tema.cor_texto && `--text: ${tema.cor_texto};`,
+    tema.cor_accent && `--bronze2: ${tema.cor_accent};`,
+    tema.cor_muted && `--muted: ${tema.cor_muted};`,
+    tema.fonte_titulo && `--font-titulo: ${tema.fonte_titulo}, 'Cinzel', Georgia, serif;`,
+    tema.fonte_corpo && `--font-corpo: ${tema.fonte_corpo}, system-ui, sans-serif;`,
+    tema.border_radius && `--radius: ${tema.border_radius};`,
+  ].filter(Boolean).join(' ');
+  const temaOverride = temaCSS ? `:root { ${temaCSS} }` +
+    (tema.fonte_titulo ? `.hero-title, .section-title, .cta-title, .re-name, .re-oneliner-text, .re-card-value, .re-list-title, .invest-price, .summary-num, .hero-meta-value, .context-card-title { font-family: var(--font-titulo) !important; }` : '') +
+    (tema.fonte_corpo ? `.prop-page, .hero-sub, .re-understand-text, .re-action-text, .re-list-item, .context-text, .module-desc, .tl-desc, .invest-row-label, .invest-note, .risk-card, .cta-sub { font-family: var(--font-corpo) !important; }` : '') +
+    (tema.border_radius ? `.context-card, .modules-grid, .invest-card, .risk-card, .re-card, .re-understand, .re-list-item--check, .re-action-btn, .modules-summary, .stack-card, .invest-breakdown, .invest-note, .invest-seal, .re-card-pill { border-radius: var(--radius) !important; }` : '')
+    : '';
   const displayModulos = c?.modulos || modulos.map((m: Modulo) => ({ nome: m.nome, descricao: m.descricao, horas: m.horas_estimadas, fase: m.fase }));
   const fases = ['mvp', 'v1', 'v2'];
   const modulosByFase = fases.map(f => ({ fase: f, mods: displayModulos.filter((m: any) => m.fase === f) })).filter((g: any) => g.mods.length > 0);
@@ -388,6 +419,7 @@ export default function PropostaPublicaPage() {
   return (
     <>
       <style>{pageCSS}</style>
+      {temaOverride && <style>{temaOverride}</style>}
       <div className="prop-page">
         <nav className="prop-nav">
           <a href="/" className="nav-logo" style={{ textDecoration: 'none' }}>VV<span>eronez</span>.dev</a>

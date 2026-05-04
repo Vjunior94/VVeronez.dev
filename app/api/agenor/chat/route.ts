@@ -82,6 +82,17 @@ REGRA ABSOLUTA: NUNCA inclua apps nativos, React Native, Expo, Flutter, Google P
       "tipo_acao": "whatsapp",
       "link_ou_contato": "https://wa.me/5543920004252"
     }
+  },
+  "tema": {
+    "cor_primaria": "#c8826b",
+    "cor_fundo": "#0d0c14",
+    "cor_fundo_card": "#161424",
+    "cor_texto": "#ddd8d2",
+    "cor_accent": "#e0a890",
+    "cor_muted": "#8a8494",
+    "fonte_titulo": "Cinzel",
+    "fonte_corpo": "system-ui",
+    "border_radius": "14px"
   }
 }
 \`\`\`
@@ -140,7 +151,22 @@ Mesmo que nada óbvio se aplique, gere 2 a 4 itens plausíveis baseados em mal-e
 - Segunda pessoa ("você", nunca "o cliente")
 - Caloroso mas profissional, nunca corporativo-genérico
 - Frases curtas. Zero "estamos felizes em apresentar" ou clichês
-- Direto ao que importa`;
+- Direto ao que importa
+
+# Regras do Tema visual
+
+O objeto "tema" é OPCIONAL no JSON final. Inclua apenas se o Valmir pedir customização visual.
+- cor_primaria: cor principal/accent (botões, destaques, bordas). Default: #c8826b
+- cor_fundo: fundo da página. Default: #0d0c14
+- cor_fundo_card: fundo dos cards. Default: #161424
+- cor_texto: cor do texto principal. Default: #ddd8d2
+- cor_accent: cor secundária de destaque. Default: #e0a890
+- cor_muted: cor do texto secundário. Default: #8a8494
+- fonte_titulo: fonte dos títulos (Google Fonts). Default: Cinzel. Opções: Playfair Display, Cormorant Garamond, Lora, Merriweather
+- fonte_corpo: fonte do corpo. Default: system-ui. Opções: Georgia, Inter, DM Sans, Lora
+- border_radius: arredondamento dos cards. Default: 14px. Use 0px para visual angular, 24px para muito arredondado
+- Cores SEMPRE em hex (#rrggbb)
+- Ao alterar cor_primaria, ajustar cor_accent para tom mais claro da mesma família`;
 
 export async function POST(req: NextRequest) {
   const { messages, propostaContext } = await req.json();
