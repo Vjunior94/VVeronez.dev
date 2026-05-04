@@ -270,6 +270,7 @@ export default function PropostaPublicaPage() {
           <p className="section-subtitle">Entendemos sua situação atual e propomos uma solução sob medida.</p>
           <div className="context-grid">
             <div className="context-card context-problem">
+              {c.problema_imagem_url && <img src={c.problema_imagem_url} alt="" className="context-img" />}
               <div className="context-icon">⚠</div>
               <div className="context-label problem-label">O cenário atual</div>
               <div className="context-card-title">{c.problema_titulo}</div>
@@ -279,6 +280,7 @@ export default function PropostaPublicaPage() {
               <svg viewBox="0 0 60 20"><path d="M0 10 H45 M40 4 L48 10 L40 16" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
             </div>
             <div className="context-card context-solution">
+              {c.solucao_imagem_url && <img src={c.solucao_imagem_url} alt="" className="context-img" />}
               <div className="context-icon">◆</div>
               <div className="context-label solution-label">A transformação</div>
               <div className="context-card-title">{c.solucao_titulo}</div>
@@ -636,7 +638,7 @@ const pageCSS = `
 
 /* Compact hero when inside details */
 .detail-hero { padding:4rem 3rem 3rem; position:relative; overflow:hidden; }
-.detail-hero .prop-hero-inner { max-width:1100px; width:100%; position:relative; z-index:1; }
+.detail-hero .prop-hero-inner { max-width:960px; width:100%; margin:0 auto; position:relative; z-index:1; }
 .detail-hero .hero-title { font-size:clamp(36px,5vw,56px); }
 .detail-hero .hero-media { flex:0 0 280px; height:320px; }
 
@@ -644,7 +646,7 @@ const pageCSS = `
 .prop-hero { min-height:100vh; display:flex; align-items:center; padding:8rem 3rem 4rem; position:relative; overflow:hidden; }
 .hero-glow { position:absolute; top:-20%; right:-10%; width:700px; height:700px; background:radial-gradient(ellipse,rgba(200,130,107,.12) 0%,transparent 65%); pointer-events:none; }
 .hero-glow-2 { position:absolute; bottom:-10%; left:-5%; width:500px; height:400px; background:radial-gradient(ellipse,rgba(200,131,154,.07) 0%,transparent 65%); pointer-events:none; }
-.prop-hero-inner { max-width:1100px; width:100%; position:relative; z-index:1; }
+.prop-hero-inner { max-width:960px; width:100%; margin:0 auto; position:relative; z-index:1; }
 .hero-media { flex:0 0 340px; height:400px; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--bg2); box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 80px rgba(200,130,107,0.08); }
 .hero-eyebrow { display:flex; align-items:center; gap:12px; margin-bottom:2rem; }
 .hero-eyebrow-line { width:40px; height:1px; background:linear-gradient(90deg,var(--bronze),transparent); }
@@ -679,6 +681,7 @@ const pageCSS = `
 .context-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,0.3); }
 .context-problem::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#c0504a,transparent); }
 .context-solution::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--bronze),var(--rose)); }
+.context-img { width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:1rem; }
 .context-icon { font-size:28px; margin-bottom:1rem; }
 .context-label { font-size:12px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:0.75rem; }
 .problem-label { color:#c0504a; }
