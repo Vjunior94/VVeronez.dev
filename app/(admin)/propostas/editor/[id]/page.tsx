@@ -312,20 +312,26 @@ export default function PropostaEditorPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const uploadFile = async (file: File, storagePath: string): Promise<string | null> => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('path', storagePath);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      if (!res.ok) return null;
+      const { url } = await res.json();
+      return url;
+    } catch { return null; }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const supabase = createClient();
     const ext = file.name.split('.').pop();
-    const path = `propostas/${propostaId}/hero.${ext}`;
-    const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-    if (error) {
-      await supabase.storage.createBucket('public-assets', { public: true });
-      await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-    }
-    const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
+    const url = await uploadFile(file, `propostas/${propostaId}/hero.${ext}`);
+    if (!url) return;
     const mediaType = file.type.startsWith('video') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image';
-    setConteudo(prev => prev ? { ...prev, hero_media_url: urlData.publicUrl, hero_media_type: mediaType } : prev);
+    setConteudo(prev => prev ? { ...prev, hero_media_url: url, hero_media_type: mediaType } : prev);
   };
 
   // ─── Chat + Streaming ─────────────────────────────────────────────
@@ -433,17 +439,10 @@ export default function PropostaEditorPage() {
     if (!file || streaming) return;
     setUploading(true);
     try {
-      const supabase = createClient();
       const ext = file.name.split('.').pop();
       const ts = Date.now();
-      const path = `propostas/${propostaId}/chat-${ts}.${ext}`;
-      const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-      if (error) {
-        await supabase.storage.createBucket('public-assets', { public: true });
-        await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-      }
-      const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
-      const url = urlData.publicUrl;
+      const url = await uploadFile(file, `propostas/${propostaId}/chat-${ts}.${ext}`);
+      if (!url) { setUploading(false); return; }
       const mediaType = file.type.startsWith('video') ? 'video' : file.type === 'image/gif' ? 'gif' : 'imagem';
       const instruction = input.trim()
         ? `${input.trim()}\n\n[${mediaType} enviada: ${url}]`
@@ -465,22 +464,17 @@ export default function PropostaEditorPage() {
   const handleEntregaImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !conteudo?.resumo_executivo) return;
-    const supabase = createClient();
     const ext = file.name.split('.').pop();
     const ts = Date.now();
-    const path = `propostas/${propostaId}/entrega-${ts}.${ext}`;
-    const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-    if (error) {
-      await supabase.storage.createBucket('public-assets', { public: true });
-      await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-    }
-    const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
+    const url = await uploadFile(file, `propostas/${propostaId}/entrega-${ts}.${ext}`);
+    if (!url) return;
     setConteudo(prev => {
       if (!prev?.resumo_executivo) return prev;
-      return { ...prev, resumo_executivo: { ...prev.resumo_executivo, entrega_imagem_url: urlData.publicUrl } };
+      return { ...prev, resumo_executivo: { ...prev.resumo_executivo, entrega_imagem_url: url } };
     });
     // Auto-save
-    const updated = { ...conteudo, resumo_executivo: { ...conteudo.resumo_executivo, entrega_imagem_url: urlData.publicUrl } };
+    const supabase = createClient();
+    const updated = { ...conteudo, resumo_executivo: { ...conteudo.resumo_executivo, entrega_imagem_url: url } };
     await supabase.from('propostas').update({ conteudo_pagina: updated }).eq('id', propostaId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
