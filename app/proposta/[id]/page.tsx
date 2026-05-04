@@ -207,61 +207,62 @@ export default function PropostaPublicaPage() {
   const totalHoras = displayModulos.reduce((a: number, m: any) => a + (m.horas || m.horas_estimadas || 0), 0);
   const maxModHoras = Math.max(...displayModulos.map((m: any) => m.horas || m.horas_estimadas || 0), 1);
 
-  // ─── Details sections (shared between both modes) ──────────────────
+  // ─── Hero component ─────────────────────────────────────────────────
 
-  const detailsSections = (
-    <>
-      {/* Hero (compact when inside details) */}
-      <div className={re ? 'detail-hero' : 'prop-hero'}>
-        {!re && <div className="hero-glow" />}
-        {!re && <div className="hero-glow-2" />}
-        <div className="prop-hero-inner" style={{ display: 'flex', gap: '3rem', alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
-            <div className="hero-eyebrow">
-              <div className="hero-eyebrow-line" />
-              <div className="hero-eyebrow-text">Proposta técnica · {new Date().getFullYear()}</div>
-            </div>
-            <h1 className="hero-title">
-              {heroTitle.split('\n').map((line: string, i: number) => (
-                <span key={i}>{i === heroTitle.split('\n').length - 1 ? <em>{line}</em> : <>{line}<br /></>}</span>
-              ))}
-            </h1>
-            {heroSub && <div className="hero-sub">{renderMd(heroSub)}</div>}
-            <div className="hero-meta">
-              <div className="hero-meta-item">
-                <div className="hero-meta-label">Prazo estimado</div>
-                <div className="hero-meta-value">{totalSemanas} semanas</div>
-              </div>
-              <div className="hero-meta-item">
-                <div className="hero-meta-label">Módulos</div>
-                <div className="hero-meta-value">{displayModulos.length}</div>
-              </div>
-              {c?.validade_dias && (
-                <div className="hero-meta-item">
-                  <div className="hero-meta-label">Validade da proposta</div>
-                  <div className="hero-meta-value">{c.validade_dias} dias</div>
-                </div>
-              )}
-            </div>
+  const heroSection = (
+    <div className="prop-hero">
+      <div className="hero-glow" />
+      <div className="hero-glow-2" />
+      <div className="prop-hero-inner" style={{ display: 'flex', gap: '3rem', alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <div className="hero-eyebrow">
+            <div className="hero-eyebrow-line" />
+            <div className="hero-eyebrow-text">Proposta técnica · {new Date().getFullYear()}</div>
           </div>
-          {heroMedia && (
-            <div className="hero-media">
-              {heroMediaType === 'video' ? (
-                <video src={heroMedia} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
-              ) : (
-                <img src={heroMedia} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
-              )}
+          <h1 className="hero-title">
+            {heroTitle.split('\n').map((line: string, i: number) => (
+              <span key={i}>{i === heroTitle.split('\n').length - 1 ? <em>{line}</em> : <>{line}<br /></>}</span>
+            ))}
+          </h1>
+          {heroSub && <div className="hero-sub">{renderMd(heroSub)}</div>}
+          <div className="hero-meta">
+            <div className="hero-meta-item">
+              <div className="hero-meta-label">Prazo estimado</div>
+              <div className="hero-meta-value">{totalSemanas} semanas</div>
             </div>
-          )}
+            <div className="hero-meta-item">
+              <div className="hero-meta-label">Módulos</div>
+              <div className="hero-meta-value">{displayModulos.length}</div>
+            </div>
+            {c?.validade_dias && (
+              <div className="hero-meta-item">
+                <div className="hero-meta-label">Validade da proposta</div>
+                <div className="hero-meta-value">{c.validade_dias} dias</div>
+              </div>
+            )}
+          </div>
         </div>
-        {!re && (
-          <div className="scroll-hint">
-            <div className="scroll-line" />
-            <span>scroll</span>
+        {heroMedia && (
+          <div className="hero-media">
+            {heroMediaType === 'video' ? (
+              <video src={heroMedia} autoPlay muted loop playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
+            ) : (
+              <img src={heroMedia} alt="Preview" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            )}
           </div>
         )}
       </div>
+      <div className="scroll-hint">
+        <div className="scroll-line" />
+        <span>scroll</span>
+      </div>
+    </div>
+  );
 
+  // ─── Details sections (without hero) ───────────────────────────────
+
+  const detailsSections = (
+    <>
       {/* Contexto */}
       {c?.problema_texto && (
         <section className="prop-section anim-section">
@@ -428,9 +429,12 @@ export default function PropostaPublicaPage() {
           <div className="nav-tag">Proposta Técnica</div>
         </nav>
 
+        {/* Hero always comes first */}
+        {heroSection}
+
         {re ? (
           <>
-            {/* ═══ RESUMO EXECUTIVO ═══ */}
+            {/* ═══ RESUMO EXECUTIVO (abaixo do hero) ═══ */}
             <section className="re-section">
               {/* a) Identificação */}
               <div className="re-ident">
@@ -601,7 +605,7 @@ const pageCSS = `
 .re-oneliner-label { font-size:12px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); margin-bottom:1rem; }
 .re-oneliner-text { font-family:'Cinzel',Georgia,serif; font-size:clamp(20px,3vw,26px); font-weight:500; color:var(--cream); line-height:1.4; max-width:60ch; margin:0 auto; }
 .re-oneliner-img { margin-top:2rem; }
-.re-oneliner-img img { width:100%; max-width:600px; margin:0 auto; display:block; border-radius:14px; border:1px solid var(--border); }
+.re-oneliner-img img { max-width:100%; height:auto; margin:0 auto; display:block; border-radius:14px; border:1px solid var(--border); }
 
 /* d) Number cards */
 .re-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:3.5rem; }
@@ -645,16 +649,14 @@ const pageCSS = `
 
 /* Compact hero when inside details */
 .detail-hero { padding:4rem 3rem 3rem; position:relative; overflow:hidden; }
-.detail-hero .prop-hero-inner { max-width:960px; width:100%; margin:0 auto; position:relative; z-index:1; }
-.detail-hero .hero-title { font-size:clamp(36px,5vw,56px); }
-.detail-hero .hero-media { flex:0 0 280px; height:320px; }
 
 /* ═══ Hero (full, legacy mode) ═══ */
 .prop-hero { min-height:100vh; display:flex; align-items:center; padding:8rem 3rem 4rem; position:relative; overflow:hidden; }
 .hero-glow { position:absolute; top:-20%; right:-10%; width:700px; height:700px; background:radial-gradient(ellipse,rgba(200,130,107,.12) 0%,transparent 65%); pointer-events:none; }
 .hero-glow-2 { position:absolute; bottom:-10%; left:-5%; width:500px; height:400px; background:radial-gradient(ellipse,rgba(200,131,154,.07) 0%,transparent 65%); pointer-events:none; }
 .prop-hero-inner { max-width:960px; width:100%; margin:0 auto; position:relative; z-index:1; }
-.hero-media { flex:0 0 340px; height:400px; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--bg2); box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 80px rgba(200,130,107,0.08); }
+.hero-media { flex:0 0 340px; max-height:450px; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--bg2); box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 80px rgba(200,130,107,0.08); }
+.hero-media img, .hero-media video { width:100%; height:auto; display:block; }
 .hero-eyebrow { display:flex; align-items:center; gap:12px; margin-bottom:2rem; }
 .hero-eyebrow-line { width:40px; height:1px; background:linear-gradient(90deg,var(--bronze),transparent); }
 .hero-eyebrow-text { font-size:12px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); }
