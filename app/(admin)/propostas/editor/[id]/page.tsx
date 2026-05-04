@@ -212,6 +212,7 @@ export default function PropostaEditorPage() {
   const messagesRef = useRef<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatFileRef = useRef<HTMLInputElement>(null);
+  const entregaImgRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -459,6 +460,31 @@ export default function PropostaEditorPage() {
       setUploading(false);
       if (chatFileRef.current) chatFileRef.current.value = '';
     }
+  };
+
+  const handleEntregaImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !conteudo?.resumo_executivo) return;
+    const supabase = createClient();
+    const ext = file.name.split('.').pop();
+    const ts = Date.now();
+    const path = `propostas/${propostaId}/entrega-${ts}.${ext}`;
+    const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
+    if (error) {
+      await supabase.storage.createBucket('public-assets', { public: true });
+      await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
+    }
+    const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
+    setConteudo(prev => {
+      if (!prev?.resumo_executivo) return prev;
+      return { ...prev, resumo_executivo: { ...prev.resumo_executivo, entrega_imagem_url: urlData.publicUrl } };
+    });
+    // Auto-save
+    const updated = { ...conteudo, resumo_executivo: { ...conteudo.resumo_executivo, entrega_imagem_url: urlData.publicUrl } };
+    await supabase.from('propostas').update({ conteudo_pagina: updated }).eq('id', propostaId);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+    if (entregaImgRef.current) entregaImgRef.current.value = '';
   };
 
   const handleClearChat = () => {
@@ -783,11 +809,29 @@ export default function PropostaEditorPage() {
                   <div className="re-oneliner">
                     <div className="re-oneliner-label">O que voce vai ter</div>
                     <div className="re-oneliner-text">{re.entrega_em_uma_frase}</div>
-                    {(re as any).entrega_imagem_url && (
-                      <div className="re-oneliner-img">
+                    {(re as any).entrega_imagem_url ? (
+                      <div className="re-oneliner-img" style={{ position: 'relative' }}>
                         <img src={(re as any).entrega_imagem_url} alt="" />
+                        <button onClick={() => {
+                          setConteudo(prev => prev?.resumo_executivo ? { ...prev, resumo_executivo: { ...prev.resumo_executivo, entrega_imagem_url: undefined } } : prev);
+                        }} style={{
+                          position: 'absolute', top: '0.4rem', right: '0.4rem', background: 'rgba(0,0,0,0.7)',
+                          border: 'none', color: '#fff', cursor: 'pointer', padding: '0.2rem', borderRadius: '50%', display: 'flex',
+                        }}>
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div onClick={() => entregaImgRef.current?.click()} style={{
+                        marginTop: '1rem', padding: '1.5rem', border: '2px dashed var(--border)',
+                        borderRadius: '10px', textAlign: 'center', cursor: 'pointer',
+                        color: 'var(--muted)', fontSize: '11px', transition: 'border-color 0.2s',
+                      }}>
+                        <Image size={20} style={{ opacity: 0.4, marginBottom: '0.3rem' }} />
+                        <div>Clique para adicionar imagem</div>
                       </div>
                     )}
+                    <input ref={entregaImgRef} type="file" accept="image/*" onChange={handleEntregaImageUpload} style={{ display: 'none' }} />
                   </div>
                   <div className="re-cards">
                     <div className="re-card">
