@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ArrowLeft, Save, Globe, Copy, Send, Loader2, Image, X, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, Save, Globe, Copy, Send, Loader2, Image, X, Trash2, PanelLeftClose, PanelLeftOpen, DollarSign, Clock, LayoutGrid, Check, Minus } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -703,66 +703,77 @@ export default function PropostaEditorPage() {
               const re = c.resumo_executivo!;
               return (
                 <section className="re-section">
-                  <div className="re-header">
-                    <div className="re-greeting">{re.saudacao},</div>
-                    <div className="re-project-type">{re.tipo_projeto}</div>
+                  <div className="re-ident">
+                    <div className="re-ident-label">Proposta para</div>
+                    <div className="re-name">{re.saudacao}</div>
+                    <div className="re-type">{re.tipo_projeto}</div>
                   </div>
-                  <div className="re-understanding"><p>{re.entendimento_do_cliente}</p></div>
+                  <div className="re-understand">
+                    <div className="re-understand-label">O que entendemos do seu projeto</div>
+                    <p className="re-understand-text">{re.entendimento_do_cliente}</p>
+                  </div>
                   <div className="re-oneliner">
                     <div className="re-oneliner-label">O que voce vai ter</div>
                     <div className="re-oneliner-text">{re.entrega_em_uma_frase}</div>
                   </div>
-                  <div className="re-numbers">
-                    <div className="re-number-card">
-                      <div className="re-number-label">Investimento</div>
-                      <div className="re-number-value">{re.numeros_chave.investimento.valor_total}</div>
-                      <div className="re-number-detail">{re.numeros_chave.investimento.forma_pagamento_resumida}</div>
+                  <div className="re-cards">
+                    <div className="re-card">
+                      <DollarSign size={16} className="re-card-icon" />
+                      <div className="re-card-label">Investimento</div>
+                      <div className="re-card-value">{re.numeros_chave.investimento.valor_total}</div>
+                      <div className="re-card-detail">{re.numeros_chave.investimento.forma_pagamento_resumida}</div>
                       {re.numeros_chave.investimento.valor_mensal_recorrente && (
-                        <div className="re-number-sub">+ {re.numeros_chave.investimento.valor_mensal_recorrente} /mes</div>
+                        <div className="re-card-pill">+ {re.numeros_chave.investimento.valor_mensal_recorrente} recorrente</div>
                       )}
                     </div>
-                    <div className="re-number-card">
-                      <div className="re-number-label">Prazo</div>
-                      <div className="re-number-value">{re.numeros_chave.prazo.duracao}</div>
-                      <div className="re-number-detail">{re.numeros_chave.prazo.data_estimada_entrega}</div>
+                    <div className="re-card">
+                      <Clock size={16} className="re-card-icon" />
+                      <div className="re-card-label">Prazo</div>
+                      <div className="re-card-value">{re.numeros_chave.prazo.duracao}</div>
+                      <div className="re-card-detail">{re.numeros_chave.prazo.data_estimada_entrega}</div>
                     </div>
-                    <div className="re-number-card">
-                      <div className="re-number-label">Escopo</div>
-                      <div className="re-number-value">{re.numeros_chave.escopo_resumido.destaque_numerico}</div>
-                      <div className="re-number-detail">{re.numeros_chave.escopo_resumido.complemento}</div>
+                    <div className="re-card">
+                      <LayoutGrid size={16} className="re-card-icon" />
+                      <div className="re-card-label">Escopo</div>
+                      <div className="re-card-value">{re.numeros_chave.escopo_resumido.destaque_numerico}</div>
+                      <div className="re-card-detail">{re.numeros_chave.escopo_resumido.complemento}</div>
                     </div>
                   </div>
-                  <div className="re-benefits">
+                  <div className="re-list-section">
                     <div className="re-list-title">O que esta incluso</div>
-                    <div className="re-benefits-grid">
+                    <div className="re-list">
                       {re.o_que_voce_recebe.map((item, i) => (
-                        <div key={i} className="re-benefit-item">
-                          <svg className="re-check" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                        <div key={i} className="re-list-item re-list-item--check">
+                          <Check size={14} className="re-icon-check" />
                           <span>{item}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="re-exclusions">
+                  <div className="re-list-section">
                     <div className="re-list-title">O que nao esta incluso</div>
-                    <div className="re-exclusions-list">
+                    <div className="re-list">
                       {re.o_que_nao_esta_incluso.map((item, i) => (
-                        <div key={i} className="re-exclusion-item">
-                          <span className="re-exclusion-dash">—</span>
+                        <div key={i} className="re-list-item re-list-item--exclude">
+                          <Minus size={12} className="re-icon-minus" />
                           <span>{item}</span>
                         </div>
                       ))}
                     </div>
+                    <div className="re-list-note">Esses itens podem ser orcados separadamente.</div>
                   </div>
-                  <div className="re-cta">
-                    <p className="re-cta-text">{re.proximo_passo.texto}</p>
-                    <span className="re-cta-btn">
+                  <div className="re-action">
+                    <p className="re-action-text">{re.proximo_passo.texto}</p>
+                    <span className="re-action-btn">
                       {re.proximo_passo.tipo_acao === 'whatsapp' ? 'Chamar no WhatsApp →' : re.proximo_passo.tipo_acao === 'email' ? 'Enviar e-mail →' : 'Aceitar proposta →'}
                     </span>
                   </div>
                   <div className="re-divider">
                     <div className="re-divider-line" />
-                    <span className="re-divider-text">Detalhes tecnicos abaixo</span>
+                    <div className="re-divider-center">
+                      <span className="re-divider-label">Detalhes da proposta</span>
+                      <span className="re-divider-sub">Para conhecer cada parte do projeto a fundo</span>
+                    </div>
                     <div className="re-divider-line" />
                   </div>
                 </section>
@@ -1053,34 +1064,39 @@ const previewCSS = `
 .prop-page .footer-note { font-size:10px; color:var(--muted); }
 
 /* Resumo Executivo */
-.prop-page .re-section { padding:2.5rem 1.5rem; max-width:900px; margin:0 auto; border-top:1px solid var(--border); }
-.prop-page .re-header { margin-bottom:1.5rem; }
-.prop-page .re-greeting { font-family:'Cinzel',Georgia,serif; font-size:clamp(20px,3vw,28px); font-weight:600; color:var(--cream); line-height:1.2; }
-.prop-page .re-project-type { font-size:12px; color:var(--bronze); margin-top:0.4rem; font-weight:500; }
-.prop-page .re-understanding { margin-bottom:1.5rem; padding:1rem 1.2rem; background:rgba(200,130,107,0.04); border:1px solid rgba(200,130,107,0.12); border-radius:10px; border-left:2px solid var(--bronze); }
-.prop-page .re-understanding p { font-size:12px; line-height:1.7; color:var(--text); margin:0; font-weight:300; }
-.prop-page .re-oneliner { margin-bottom:2rem; text-align:center; padding:1.2rem 1rem; }
+.prop-page .re-section { padding:2.5rem 1.5rem 1rem; max-width:900px; margin:0 auto; border-top:1px solid var(--border); }
+.prop-page .re-ident { margin-bottom:1.5rem; }
+.prop-page .re-ident-label { font-size:9px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); margin-bottom:0.4rem; }
+.prop-page .re-name { font-family:'Cinzel',Georgia,serif; font-size:clamp(22px,3vw,32px); font-weight:400; color:var(--cream); line-height:1.15; margin-bottom:0.3rem; }
+.prop-page .re-type { font-size:12px; color:var(--muted); }
+.prop-page .re-understand { margin-bottom:1.5rem; padding:1rem 1.2rem; border-left:3px solid var(--bronze); background:rgba(200,130,107,0.03); border-radius:0 10px 10px 0; }
+.prop-page .re-understand-label { font-size:8px; font-weight:500; letter-spacing:0.18em; text-transform:uppercase; color:var(--bronze); margin-bottom:0.5rem; }
+.prop-page .re-understand-text { font-size:12px; line-height:1.7; color:var(--text); margin:0; font-weight:300; }
+.prop-page .re-oneliner { margin-bottom:2rem; text-align:center; padding:1rem 0.8rem; }
 .prop-page .re-oneliner-label { font-size:9px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); margin-bottom:0.5rem; }
-.prop-page .re-oneliner-text { font-family:'Cinzel',Georgia,serif; font-size:clamp(15px,2vw,20px); font-weight:600; color:var(--cream); line-height:1.35; }
-.prop-page .re-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:0.6rem; margin-bottom:2rem; }
-.prop-page .re-number-card { padding:1.2rem 1rem; background:var(--bg2); border:1px solid var(--border); border-radius:12px; text-align:center; }
-.prop-page .re-number-label { font-size:9px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:0.5rem; }
-.prop-page .re-number-value { font-family:'Cinzel',Georgia,serif; font-size:clamp(16px,2vw,22px); font-weight:700; color:var(--bronze2); margin-bottom:0.2rem; }
-.prop-page .re-number-detail { font-size:10px; color:var(--muted); line-height:1.4; }
-.prop-page .re-number-sub { font-size:10px; color:var(--bronze); margin-top:0.3rem; font-weight:500; }
-.prop-page .re-benefits { margin-bottom:1.5rem; }
-.prop-page .re-list-title { font-family:'Cinzel',Georgia,serif; font-size:14px; font-weight:600; color:var(--cream); margin-bottom:0.8rem; }
-.prop-page .re-benefits-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
-.prop-page .re-benefit-item { display:flex; align-items:flex-start; gap:0.5rem; padding:0.6rem 0.8rem; background:var(--bg2); border:1px solid var(--border); border-radius:8px; font-size:11px; color:var(--text); line-height:1.5; }
-.prop-page .re-check { width:14px; height:14px; color:#5fd0b8; flex-shrink:0; margin-top:1px; }
-.prop-page .re-exclusions { margin-bottom:2rem; }
-.prop-page .re-exclusions-list { display:grid; gap:0.3rem; }
-.prop-page .re-exclusion-item { display:flex; align-items:flex-start; gap:0.4rem; padding:0.5rem 0.7rem; font-size:10px; color:var(--muted); line-height:1.5; background:rgba(255,255,255,0.02); border-radius:6px; }
-.prop-page .re-exclusion-dash { color:var(--bronze); font-weight:700; flex-shrink:0; }
-.prop-page .re-cta { text-align:center; padding:1.5rem 1rem; margin-bottom:1.2rem; }
-.prop-page .re-cta-text { font-size:12px; color:var(--text); margin-bottom:1rem; font-weight:300; }
-.prop-page .re-cta-btn { display:inline-flex; align-items:center; gap:6px; padding:10px 24px; background:var(--bronze); color:var(--bg); font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-radius:8px; cursor:default; }
-.prop-page .re-divider { display:flex; align-items:center; gap:1rem; padding:0.8rem 0; }
+.prop-page .re-oneliner-text { font-family:'Cinzel',Georgia,serif; font-size:clamp(14px,2vw,18px); font-weight:500; color:var(--cream); line-height:1.35; }
+.prop-page .re-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; margin-bottom:2rem; }
+.prop-page .re-card { padding:1rem 0.8rem; background:var(--bg2); border:1px solid var(--border); border-radius:10px; text-align:center; }
+.prop-page .re-card-icon { color:var(--bronze); margin-bottom:0.5rem; opacity:0.7; }
+.prop-page .re-card-label { font-size:8px; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.4rem; }
+.prop-page .re-card-value { font-family:'Cinzel',Georgia,serif; font-size:clamp(16px,2vw,22px); font-weight:600; color:var(--cream); margin-bottom:0.2rem; line-height:1.1; }
+.prop-page .re-card-detail { font-size:9px; color:var(--muted); line-height:1.4; }
+.prop-page .re-card-pill { display:inline-block; margin-top:0.4rem; padding:2px 8px; font-size:8px; font-weight:500; color:var(--bronze); background:rgba(200,130,107,0.1); border:1px solid rgba(200,130,107,0.2); border-radius:100px; }
+.prop-page .re-list-section { margin-bottom:1.5rem; }
+.prop-page .re-list-title { font-family:'Cinzel',Georgia,serif; font-size:13px; font-weight:500; color:var(--cream); margin-bottom:0.6rem; }
+.prop-page .re-list { display:grid; gap:0.4rem; }
+.prop-page .re-list-item { display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.7rem; font-size:11px; line-height:1.5; border-radius:7px; }
+.prop-page .re-list-item--check { background:var(--bg2); border:1px solid var(--border); color:var(--text); }
+.prop-page .re-list-item--exclude { background:rgba(255,255,255,0.015); color:var(--muted); font-size:10px; }
+.prop-page .re-icon-check { color:#5fd0b8; flex-shrink:0; margin-top:2px; }
+.prop-page .re-icon-minus { color:var(--muted); flex-shrink:0; margin-top:3px; opacity:0.6; }
+.prop-page .re-list-note { font-size:9px; color:var(--muted); font-style:italic; margin-top:0.4rem; }
+.prop-page .re-action { text-align:center; padding:1.5rem 0.5rem 0.5rem; }
+.prop-page .re-action-text { font-size:12px; color:var(--text); margin-bottom:0.8rem; font-weight:400; }
+.prop-page .re-action-btn { display:inline-flex; align-items:center; gap:5px; padding:8px 20px; background:var(--bronze); color:var(--bg); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-radius:8px; cursor:default; }
+.prop-page .re-divider { display:flex; align-items:center; gap:0.8rem; padding:1.5rem 0 0.5rem; }
 .prop-page .re-divider-line { flex:1; height:1px; background:linear-gradient(to right,transparent,var(--border),transparent); }
-.prop-page .re-divider-text { font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.prop-page .re-divider-center { text-align:center; flex-shrink:0; }
+.prop-page .re-divider-label { display:block; font-size:8px; font-weight:500; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+.prop-page .re-divider-sub { display:block; font-family:'Cinzel',Georgia,serif; font-size:10px; font-style:italic; color:var(--muted); margin-top:0.2rem; opacity:0.7; }
 `;
