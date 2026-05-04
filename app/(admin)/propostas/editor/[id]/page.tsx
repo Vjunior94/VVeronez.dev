@@ -1071,7 +1071,8 @@ const previewCSS = `
 .prop-page .hero-glow { position:absolute; top:-20%; right:-10%; width:500px; height:500px; background:radial-gradient(ellipse,rgba(200,130,107,.1) 0%,transparent 65%); pointer-events:none; }
 .prop-page .hero-glow-2 { position:absolute; bottom:-10%; left:-5%; width:400px; height:300px; background:radial-gradient(ellipse,rgba(200,131,154,.06) 0%,transparent 65%); pointer-events:none; }
 .prop-page .prop-hero-inner { max-width:900px; width:100%; margin:0 auto; position:relative; z-index:1; }
-.prop-page .hero-media { flex:0 0 220px; height:260px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--bg2); }
+.prop-page .hero-media { flex:0 0 auto; max-width:220px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--bg2); }
+.prop-page .hero-media img, .prop-page .hero-media video { width:100%; height:auto; display:block; }
 .prop-page .hero-eyebrow { display:flex; align-items:center; gap:10px; margin-bottom:1.5rem; }
 .prop-page .hero-eyebrow-line { width:30px; height:1px; background:linear-gradient(90deg,var(--bronze),transparent); }
 .prop-page .hero-eyebrow-text { font-size:9px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); }
