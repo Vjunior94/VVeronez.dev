@@ -23,12 +23,20 @@ export default function CTASection() {
 
         <div className="cta-actions">
           <a
-            href="https://wa.me/PLACEHOLDER_NUMERO?text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20gostaria%20de%20conversar%20sobre%20um%20projeto."
+            href="https://wa.me/5543920004252?text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20gostaria%20de%20conversar%20sobre%20um%20projeto."
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary btn-sofia"
           >
             Iniciar conversa
+            <span className="arrow">→</span>
+          </a>
+          <a
+            href="/proposta"
+            className="cases-show-all"
+            style={{ padding: '1.1rem 2rem' }}
+          >
+            Acessar proposta
             <span className="arrow">→</span>
           </a>
         </div>

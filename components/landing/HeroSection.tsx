@@ -15,15 +15,15 @@ export default function HeroSection() {
       </div>
 
       <div className="hero-content">
-        <div className="hero-tag">Engenharia · IA Agêntica · Produtos Digitais</div>
+        <div className="hero-tag">Software · IA Agêntica · Produtos Digitais</div>
         <h1 className="hero-title">
           <span className="solid">Engenharia de Software</span>
           <br />
           para <span className="gold">solução de problemas</span>.
         </h1>
         <p className="hero-subtitle">
-          Engenharia de software para empresas que tratam tecnologia como{' '}
-          <strong>ativo estratégico</strong> — não como custo operacional.
+          Soluções sob medida para profissionais autônomos e empresas que tratam tecnologia como{' '}
+          <strong>ativo estratégico</strong>.
         </p>
         <div className="hero-actions">
           <a href="#projetos" className="hero-cta">

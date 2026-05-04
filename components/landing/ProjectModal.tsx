@@ -111,7 +111,7 @@ export default function ProjectModal({ project, projectIndex, onClose }: Project
 
               <div className="modal-footer">
                 <a
-                  href={`https://wa.me/PLACEHOLDER_NUMERO?text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20gostaria%20de%20conversar%20sobre%20um%20projeto%20similar%20a%20${encodeURIComponent(project.titulo)}.`}
+                  href={`https://wa.me/5543920004252?text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20gostaria%20de%20conversar%20sobre%20um%20projeto%20similar%20a%20${encodeURIComponent(project.titulo)}.`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="modal-cta"

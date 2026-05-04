@@ -41,6 +41,14 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     type: "website",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "VVeronez",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -53,6 +61,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geist.variable} ${cinzel.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
     >
+      <head>
+        <meta name="theme-color" content="#0a0814" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.svg" />
+      </head>
       <body>{children}</body>
     </html>
   );

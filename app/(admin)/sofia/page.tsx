@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useCachedFetch } from '@/lib/use-cached-fetch';
 import { getDDDInfo, formatPhone } from '@/lib/ddd';
-import { MessageSquare, Clock, CheckCircle, Archive, Flame, Snowflake, Sun } from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle, Archive, Flame, Snowflake, Sun, Search, Plus } from 'lucide-react';
 
 interface Lead {
   id: string;
@@ -12,6 +13,7 @@ interface Lead {
   status: string;
   temperatura: string | null;
   resumo_executivo: string | null;
+  justificativa_temperatura: string | null;
   total_mensagens: number;
   created_at: string;
   finalizado_em: string | null;
@@ -32,7 +34,7 @@ const statusLabels: Record<string, string> = {
   negado: 'Negado',
 };
 
-type FilterKey = 'todos' | 'em_andamento' | 'finalizado' | 'quente' | 'negado';
+type FilterKey = 'todos' | 'em_andamento' | 'finalizado' | 'quente' | 'morno' | 'frio' | 'negado';
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -45,36 +47,45 @@ function timeAgo(dateStr: string) {
 }
 
 export default function SofiaPage() {
-  const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<FilterKey>('todos');
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('leads')
-        .select('id, whatsapp_numero, nome_cliente, status, temperatura, resumo_executivo, total_mensagens, created_at, finalizado_em')
-        .is('arquivado_em', null)
-        .order('created_at', { ascending: false });
-      setAllLeads(data ?? []);
-      setLoading(false);
+  const [allLeads, loading] = useCachedFetch<Lead[]>('sofia-leads', async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('leads')
+      .select('id, whatsapp_numero, nome_cliente, status, temperatura, resumo_executivo, justificativa_temperatura, total_mensagens, created_at, finalizado_em')
+      .is('arquivado_em', null)
+      .order('created_at', { ascending: false });
+    return data ?? [];
+  });
+
+  const all = allLeads ?? [];
+  const leads = all.filter(l => {
+    // Filter
+    if (filter === 'quente') { if (l.temperatura !== 'quente') return false; }
+    else if (filter === 'morno') { if (l.temperatura !== 'morno') return false; }
+    else if (filter === 'frio') { if (l.temperatura !== 'frio') return false; }
+    else if (filter !== 'todos') { if (l.status !== filter) return false; }
+    // Search
+    if (search) {
+      const q = search.toLowerCase();
+      const match = (l.nome_cliente || '').toLowerCase().includes(q)
+        || l.whatsapp_numero.includes(q)
+        || (l.resumo_executivo || '').toLowerCase().includes(q);
+      if (!match) return false;
     }
-    load();
-  }, []);
-
-  const leads = allLeads.filter(l => {
-    if (filter === 'todos') return true;
-    if (filter === 'quente') return l.temperatura === 'quente';
-    return l.status === filter;
+    return true;
   });
 
   const stats = {
-    total: allLeads.length,
-    emAndamento: allLeads.filter(l => l.status === 'em_andamento').length,
-    finalizados: allLeads.filter(l => l.status === 'finalizado').length,
-    quentes: allLeads.filter(l => l.temperatura === 'quente').length,
-    negados: allLeads.filter(l => l.status === 'negado').length,
+    total: all.length,
+    emAndamento: all.filter(l => l.status === 'em_andamento').length,
+    finalizados: all.filter(l => l.status === 'finalizado').length,
+    quentes: all.filter(l => l.temperatura === 'quente').length,
+    mornos: all.filter(l => l.temperatura === 'morno').length,
+    frios: all.filter(l => l.temperatura === 'frio').length,
+    negados: all.filter(l => l.status === 'negado').length,
   };
 
   const filters: { key: FilterKey; label: string; count: number; icon: React.ReactNode }[] = [
@@ -82,14 +93,27 @@ export default function SofiaPage() {
     { key: 'em_andamento', label: 'Ativos', count: stats.emAndamento, icon: <Clock size={14} /> },
     { key: 'finalizado', label: 'Finalizados', count: stats.finalizados, icon: <CheckCircle size={14} /> },
     { key: 'quente', label: 'Quentes', count: stats.quentes, icon: <Flame size={14} /> },
+    { key: 'morno', label: 'Mornos', count: stats.mornos, icon: <Sun size={14} /> },
+    { key: 'frio', label: 'Frios', count: stats.frios, icon: <Snowflake size={14} /> },
     { key: 'negado', label: 'Negados', count: stats.negados, icon: <Archive size={14} /> },
   ];
 
   return (
     <>
-      <h1 className="admin-page-title">Sofia — Leads</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h1 className="admin-page-title" style={{ marginBottom: 0 }}>Sofia — Leads</h1>
+        <a href="/sofia/novo" style={{
+          display: 'flex', alignItems: 'center', gap: '0.4rem',
+          padding: '0.5rem 1rem', background: 'none',
+          border: '1px solid var(--border-subtle)', color: 'var(--gold-300)',
+          fontSize: '0.72rem', textDecoration: 'none',
+          fontFamily: "var(--font-jetbrains)", letterSpacing: '0.08em', textTransform: 'uppercase',
+        }}>
+          <Plus size={14} /> Novo Lead
+        </a>
+      </div>
 
-      <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+      <div className="dashboard-grid" style={{ marginBottom: '1rem' }}>
         {filters.map((f) => (
           <button
             key={f.key}
@@ -108,6 +132,21 @@ export default function SofiaPage() {
             <div className="dash-card-value">{loading ? '—' : f.count}</div>
           </button>
         ))}
+      </div>
+
+      {/* Search */}
+      <div style={{ marginBottom: '1.2rem', position: 'relative' }}>
+        <Search size={16} style={{ position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por nome, telefone ou resumo..."
+          style={{
+            width: '100%', padding: '0.6rem 0.8rem 0.6rem 2.4rem',
+            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)',
+            color: 'var(--gold-100)', fontSize: '0.85rem', fontFamily: 'inherit', outline: 'none',
+          }}
+        />
       </div>
 
       {loading ? (
@@ -141,7 +180,10 @@ export default function SofiaPage() {
                       {lead.nome_cliente || 'Sem nome'}
                     </span>
                     {temp && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.68rem', ...Object.fromEntries([[temp.color.split(':')[0], temp.color.split(':')[1].replace(';','')]]) }}>
+                      <span
+                        title={lead.justificativa_temperatura || undefined}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.68rem', ...Object.fromEntries([[temp.color.split(':')[0], temp.color.split(':')[1].replace(';','')]]), cursor: lead.justificativa_temperatura ? 'help' : undefined }}
+                      >
                         {temp.icon} {temp.label}
                       </span>
                     )}

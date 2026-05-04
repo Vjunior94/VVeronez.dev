@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LayoutDashboard, MessageSquare, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight, Globe } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sofia', label: 'Sofia', icon: MessageSquare },
   { href: '/agenor', label: 'Agenor', icon: FileText },
+  { href: '/propostas', label: 'Propostas Publicadas', icon: Globe },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
@@ -24,6 +25,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setUserEmail(user.email);
     });
+  }, []);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
   }, []);
 
   const handleLogout = async () => {

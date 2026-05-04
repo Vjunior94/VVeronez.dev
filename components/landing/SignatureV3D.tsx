@@ -135,8 +135,8 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
     logoGroup.scale.set(1.5, 1.5, 1.5);
     scene.add(logoGroup);
 
-    const V_MIN = 0.18;
-    const V_MAX = 4.5;
+    const V_MIN = 0.234;
+    const V_MAX = 5.85;
     const SPEED_K = 3.0;
 
     let angleY = 0;
@@ -160,7 +160,7 @@ export default function SignatureV3D({ variant }: SignatureV3DProps) {
       const t01 = Math.pow(1 - facing, SPEED_K);
       const omega = V_MIN + (V_MAX - V_MIN) * t01;
 
-      angleY += omega * dt;
+      angleY -= omega * dt;
 
       logoGroup.rotation.y = angleY;
       const tAbs = (now - startTime) * 0.001;
