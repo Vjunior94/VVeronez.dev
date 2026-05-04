@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ArrowLeft, Save, Globe, Copy, Send, Loader2, Image, X, Trash2, PanelLeftClose, PanelLeftOpen, DollarSign, Clock, LayoutGrid, Check, Minus } from 'lucide-react';
+import { ArrowLeft, Save, Globe, Copy, Send, Loader2, Image, X, Trash2, PanelLeftClose, PanelLeftOpen, DollarSign, Clock, LayoutGrid, Check, Minus, Paperclip } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -146,6 +146,29 @@ function renderMd(text: string) {
 
 // ─── Chat markdown renderer ─────────────────────────────────────────
 
+function renderUserMsg(text: string) {
+  const imgMatch = text.match(/\bhttps?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg|mp4)\b/i) ||
+                   text.match(/\bhttps?:\/\/\S+\/storage\/v1\/object\/public\/\S+/i);
+  const cleanText = text
+    .replace(/\[(?:imagem|video|gif) enviada: [^\]]+\]/gi, '')
+    .replace(/Use esta (?:imagem|video|gif) na proposta: \S+/gi, '')
+    .trim();
+  return (
+    <>
+      {cleanText && <p style={{ marginBottom: imgMatch ? '0.5rem' : 0 }}>{cleanText}</p>}
+      {imgMatch && (
+        <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-subtle)', maxWidth: '200px' }}>
+          {imgMatch[0].match(/\.mp4$/i) ? (
+            <video src={imgMatch[0]} style={{ width: '100%', display: 'block' }} autoPlay muted loop playsInline />
+          ) : (
+            <img src={imgMatch[0]} alt="Enviado" style={{ width: '100%', display: 'block' }} />
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 function renderChat(text: string) {
   // Hide JSON blocks from display
   const cleaned = text.replace(/```json:proposta_editada[\s\S]*?```/g, '').trim();
@@ -188,6 +211,8 @@ export default function PropostaEditorPage() {
   const chatRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatFileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Sync ref + persist
@@ -402,6 +427,40 @@ export default function PropostaEditorPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  const handleChatImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || streaming) return;
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const ext = file.name.split('.').pop();
+      const ts = Date.now();
+      const path = `propostas/${propostaId}/chat-${ts}.${ext}`;
+      const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
+      if (error) {
+        await supabase.storage.createBucket('public-assets', { public: true });
+        await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
+      }
+      const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
+      const url = urlData.publicUrl;
+      const mediaType = file.type.startsWith('video') ? 'video' : file.type === 'image/gif' ? 'gif' : 'imagem';
+      const instruction = input.trim()
+        ? `${input.trim()}\n\n[${mediaType} enviada: ${url}]`
+        : `Use esta ${mediaType} na proposta: ${url}`;
+      const newMsg: Message = { role: 'user', content: instruction };
+      const allMsgs = [...messages, newMsg];
+      setMessages(allMsgs);
+      persistChat(propostaId, allMsgs);
+      setInput('');
+      streamEdit(allMsgs);
+    } catch (err) {
+      console.error('Upload error:', err);
+    } finally {
+      setUploading(false);
+      if (chatFileRef.current) chatFileRef.current.value = '';
+    }
+  };
+
   const handleClearChat = () => {
     if (!confirm('Limpar conversa? O conteudo da proposta sera mantido.')) return;
     localStorage.removeItem(`agenor-editor:${propostaId}`);
@@ -571,7 +630,7 @@ export default function PropostaEditorPage() {
                   }}>
                     {msg.role === 'user' ? 'Valmir' : 'Agenor'}
                   </div>
-                  <div>{msg.role === 'user' ? msg.content : renderChat(msg.content)}</div>
+                  <div>{msg.role === 'user' ? renderUserMsg(msg.content) : renderChat(msg.content)}</div>
                 </div>
               ))}
               {streaming && messages.length > 0 && messages[messages.length - 1].content === '' && (
@@ -583,6 +642,15 @@ export default function PropostaEditorPage() {
 
             {/* Chat input */}
             <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+              <button onClick={() => chatFileRef.current?.click()} disabled={streaming || uploading} title="Enviar imagem" style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '36px', background: uploading ? 'rgba(212,160,74,0.25)' : 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border-subtle)', color: uploading ? 'var(--gold-100)' : 'var(--text-dim)',
+                cursor: streaming || uploading ? 'wait' : 'pointer', flexShrink: 0,
+              }}>
+                {uploading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Paperclip size={14} />}
+              </button>
+              <input ref={chatFileRef} type="file" accept="image/*,video/*,.gif" onChange={handleChatImageUpload} style={{ display: 'none' }} />
               <textarea
                 value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder="Ex: mude o titulo para..."
