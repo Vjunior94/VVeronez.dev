@@ -33,6 +33,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Track client access
   supabase.from('propostas').update({ ultimo_acesso_cliente: new Date().toISOString() }).eq('id', id).then(() => {});
 
+  // Log access with geolocation (Vercel headers)
+  const cidade = req.headers.get('x-vercel-ip-city') || req.headers.get('cf-ipcity') || null;
+  const estado = req.headers.get('x-vercel-ip-country-region') || null;
+  const pais = req.headers.get('x-vercel-ip-country') || null;
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || null;
+  const userAgent = req.headers.get('user-agent') || null;
+  supabase.from('proposta_acessos').insert({
+    proposta_id: id, cidade: cidade ? decodeURIComponent(cidade) : null, estado, pais, ip, user_agent: userAgent,
+  }).then(() => {});
+
   // Fetch modules and services
   const [modsRes, servsRes] = await Promise.all([
     supabase.from('proposta_modulos').select('*').eq('proposta_id', id).order('ordem'),

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil } from 'lucide-react';
+import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil, Eye } from 'lucide-react';
 
 interface PropostaPublicada {
   id: string;
@@ -76,7 +76,18 @@ export default function PropostasPublicadasPage() {
 
   return (
     <>
-      <h1 className="admin-page-title">Propostas Publicadas</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <h1 className="admin-page-title" style={{ marginBottom: 0 }}>Propostas Publicadas</h1>
+        <a href="/propostas/acessos" style={{
+          display: 'flex', alignItems: 'center', gap: '0.4rem',
+          background: 'none', border: '1px solid var(--border-subtle)',
+          color: 'var(--gold-300)', padding: '0.4rem 0.8rem', fontSize: '0.72rem',
+          textDecoration: 'none', fontFamily: "var(--font-jetbrains)",
+          letterSpacing: '0.05em',
+        }}>
+          <Eye size={14} /> Acessos
+        </a>
+      </div>
 
       {loading ? (
         <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Carregando...</p>
