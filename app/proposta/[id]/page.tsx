@@ -660,8 +660,8 @@ const pageCSS = `
 .hero-eyebrow { display:flex; align-items:center; gap:12px; margin-bottom:2rem; }
 .hero-eyebrow-line { width:40px; height:1px; background:linear-gradient(90deg,var(--bronze),transparent); }
 .hero-eyebrow-text { font-size:12px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); }
-.hero-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(48px,8vw,80px); font-weight:700; line-height:0.95; letter-spacing:-1px; color:var(--cream); margin-bottom:1.5rem; }
-.hero-title em { font-style:italic; color:transparent; -webkit-text-stroke:1.5px var(--bronze); }
+.hero-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(36px,6vw,58px); font-weight:400; line-height:1.15; letter-spacing:0.01em; color:var(--cream); margin-bottom:1.5rem; }
+.hero-title em { font-style:italic; color:var(--bronze2); font-weight:300; }
 .hero-sub { font-size:18px; color:var(--text); max-width:600px; line-height:1.8; margin-bottom:3rem; font-weight:300; }
 .hero-sub strong { color:var(--cream); font-weight:500; }
 .hero-meta { display:flex; gap:3rem; flex-wrap:wrap; }
