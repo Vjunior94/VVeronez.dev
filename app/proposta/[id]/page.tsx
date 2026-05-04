@@ -449,6 +449,11 @@ export default function PropostaPublicaPage() {
               <div className="re-oneliner">
                 <div className="re-oneliner-label">O que você vai ter</div>
                 <div className="re-oneliner-text">{re.entrega_em_uma_frase}</div>
+                {(re as any).entrega_imagem_url && (
+                  <div className="re-oneliner-img">
+                    <img src={(re as any).entrega_imagem_url} alt="" />
+                  </div>
+                )}
               </div>
 
               {/* d) 3 Cards de números */}
@@ -595,6 +600,8 @@ const pageCSS = `
 .re-oneliner { margin-bottom:3.5rem; text-align:center; padding:1.5rem 2rem; }
 .re-oneliner-label { font-size:12px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); margin-bottom:1rem; }
 .re-oneliner-text { font-family:'Cinzel',Georgia,serif; font-size:clamp(20px,3vw,26px); font-weight:500; color:var(--cream); line-height:1.4; max-width:60ch; margin:0 auto; }
+.re-oneliner-img { margin-top:2rem; }
+.re-oneliner-img img { width:100%; max-width:600px; margin:0 auto; display:block; border-radius:14px; border:1px solid var(--border); }
 
 /* d) Number cards */
 .re-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:3.5rem; }

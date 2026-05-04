@@ -34,6 +34,7 @@ SEMPRE responda com:
 - Se o Valmir perguntar algo sem pedir edicao, responda normalmente SEM incluir o bloco JSON.
 - Quando o Valmir enviar uma URL de imagem/video, APLIQUE IMEDIATAMENTE sem questionar limitacoes de layout:
   - "no hero" / "na capa" / "entre titulo e subtitulo" / qualquer menção ao hero → hero_media_url + hero_media_type. FACA e pronto.
+  - "no resumo" / "abaixo do que voce vai ter" / "na entrega" → resumo_executivo.entrega_imagem_url
   - "no problema" / "no cenario atual" → problema_imagem_url
   - "na solucao" / "na transformacao" → solucao_imagem_url
   - "no investimento" → investimento_imagem_url
@@ -74,6 +75,7 @@ SEMPRE responda com:
     "tipo_projeto": string,
     "entendimento_do_cliente": string (2-4 frases, linguagem leiga, segunda pessoa, zero termos técnicos),
     "entrega_em_uma_frase": string (max 25 palavras, 100% leigo),
+    "entrega_imagem_url": string (opcional, URL de imagem abaixo da frase de entrega),
     "numeros_chave": {
       "investimento": { "valor_total": string, "forma_pagamento_resumida": string, "valor_mensal_recorrente": string | null },
       "prazo": { "duracao": string, "data_estimada_entrega": string },

@@ -783,6 +783,11 @@ export default function PropostaEditorPage() {
                   <div className="re-oneliner">
                     <div className="re-oneliner-label">O que voce vai ter</div>
                     <div className="re-oneliner-text">{re.entrega_em_uma_frase}</div>
+                    {(re as any).entrega_imagem_url && (
+                      <div className="re-oneliner-img">
+                        <img src={(re as any).entrega_imagem_url} alt="" />
+                      </div>
+                    )}
                   </div>
                   <div className="re-cards">
                     <div className="re-card">
@@ -1143,6 +1148,8 @@ const previewCSS = `
 .prop-page .re-oneliner { margin-bottom:2rem; text-align:center; padding:1rem 0.8rem; }
 .prop-page .re-oneliner-label { font-size:9px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze); margin-bottom:0.5rem; }
 .prop-page .re-oneliner-text { font-family:'Cinzel',Georgia,serif; font-size:clamp(14px,2vw,18px); font-weight:500; color:var(--cream); line-height:1.35; }
+.prop-page .re-oneliner-img { margin-top:1rem; }
+.prop-page .re-oneliner-img img { width:100%; max-width:400px; margin:0 auto; display:block; border-radius:10px; border:1px solid var(--border); }
 .prop-page .re-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; margin-bottom:2rem; }
 .prop-page .re-card { padding:1rem 0.8rem; background:var(--bg2); border:1px solid var(--border); border-radius:10px; text-align:center; }
 .prop-page .re-card-icon { color:var(--bronze); margin-bottom:0.5rem; opacity:0.7; }
