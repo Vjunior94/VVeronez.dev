@@ -45,16 +45,16 @@ const COLORS = {
   yellow: [212, 160, 74] as [number, number, number],
 };
 
-const CAMPO_META: Record<string, { label: string; icon: string; color: [number, number, number] }> = {
-  tipo_projeto:       { label: 'Tipo de Projeto',     icon: '◈', color: COLORS.purple },
-  problema_objetivo:  { label: 'Problema / Objetivo', icon: '◎', color: COLORS.red },
-  estagio_atual:      { label: 'Estágio Atual',       icon: '△', color: COLORS.green },
-  tamanho_escala:     { label: 'Tamanho / Escala',    icon: '◇', color: COLORS.blue },
-  prazo:              { label: 'Prazo',                icon: '◷', color: COLORS.yellow },
-  investimento:       { label: 'Investimento',         icon: '◆', color: COLORS.green },
-  decisao_contexto:   { label: 'Decisão / Contexto',  icon: '⬡', color: COLORS.purple },
-  nome_cliente:       { label: 'Nome',                 icon: '◉', color: COLORS.blue },
-  observacoes_extras: { label: 'Observações',          icon: '◫', color: COLORS.yellow },
+const CAMPO_META: Record<string, { label: string; color: [number, number, number] }> = {
+  tipo_projeto:       { label: 'Tipo de Projeto',     color: COLORS.purple },
+  problema_objetivo:  { label: 'Problema / Objetivo', color: COLORS.red },
+  estagio_atual:      { label: 'Estágio Atual',       color: COLORS.green },
+  tamanho_escala:     { label: 'Tamanho / Escala',    color: COLORS.blue },
+  prazo:              { label: 'Prazo',                color: COLORS.yellow },
+  investimento:       { label: 'Investimento',         color: COLORS.green },
+  decisao_contexto:   { label: 'Decisão / Contexto',  color: COLORS.purple },
+  nome_cliente:       { label: 'Nome',                 color: COLORS.blue },
+  observacoes_extras: { label: 'Observações',          color: COLORS.yellow },
 };
 
 const FRASE_CAT: Record<string, { label: string; color: [number, number, number] }> = {
@@ -138,6 +138,25 @@ export function exportFichaPDF(
     return doc.splitTextToSize(text, maxWidth) as string[];
   }
 
+  // Draw a small diamond shape as section icon (replaces Unicode chars)
+  function drawDiamond(dx: number, dy: number, size: number, color: [number, number, number]) {
+    doc.setFillColor(...color);
+    // Draw diamond using a rotated square (triangle fan)
+    const s = size;
+    doc.triangle(dx, dy - s, dx + s, dy, dx, dy + s, 'F');
+    doc.triangle(dx, dy - s, dx - s, dy, dx, dy + s, 'F');
+  }
+
+  // Draw section title with diamond icon
+  function drawSectionTitle(title: string, sy: number): number {
+    drawDiamond(MARGIN + 3, sy - 1.5, 2.2, COLORS.gold);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.gold);
+    doc.text(title, MARGIN + 9, sy);
+    return sy + 4;
+  }
+
   // ── Page 1 Background ──
   drawPageBg();
 
@@ -174,7 +193,7 @@ export function exportFichaPDF(
   if (lead.nome_cliente) metaParts.push(formatPhone(lead.whatsapp_numero));
   metaParts.push(`${lead.total_mensagens} mensagens`);
   metaParts.push(formatDate(lead.created_at));
-  doc.text(metaParts.join('  ·  '), MARGIN, 46);
+  doc.text(metaParts.join('  |  '), MARGIN, 46);
 
   // Temperature + action badges (right side)
   let badgeX = PAGE_W - MARGIN;
@@ -205,11 +224,7 @@ export function exportFichaPDF(
   // ── Resumo Executivo ──
   if (lead.resumo_executivo) {
     checkPage(30);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORS.gold);
-    doc.text('◈  RESUMO EXECUTIVO', MARGIN, y);
-    y += 4;
+    y = drawSectionTitle('RESUMO EXECUTIVO', y);
     drawLine(MARGIN, y, MARGIN + CONTENT_W, COLORS.gold, 0.2);
     y += 5;
 
@@ -232,11 +247,7 @@ export function exportFichaPDF(
 
   if (fichaUnique.length > 0) {
     checkPage(15);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORS.gold);
-    doc.text('◈  DADOS DO PROJETO', MARGIN, y);
-    y += 4;
+    y = drawSectionTitle('DADOS DO PROJETO', y);
     drawLine(MARGIN, y, MARGIN + CONTENT_W, COLORS.gold, 0.2);
     y += 6;
 
@@ -266,11 +277,7 @@ export function exportFichaPDF(
   // ── Frases do Cliente ──
   if (frasesOuro.length > 0) {
     checkPage(20);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORS.gold);
-    doc.text('◈  FRASES DO CLIENTE', MARGIN, y);
-    y += 4;
+    y = drawSectionTitle('FRASES DO CLIENTE', y);
     drawLine(MARGIN, y, MARGIN + CONTENT_W, COLORS.gold, 0.2);
     y += 6;
 
@@ -326,18 +333,14 @@ export function exportFichaPDF(
   }
 
   // ── Insights Section ──
-  const insights: { title: string; icon: string; text: string; color: [number, number, number] }[] = [];
-  if (lead.alertas) insights.push({ title: 'ALERTAS', icon: '⚠', text: lead.alertas, color: COLORS.red });
-  if (lead.justificativa_temperatura) insights.push({ title: 'JUSTIFICATIVA DA TEMPERATURA', icon: '◌', text: lead.justificativa_temperatura, color: TEMP_LABELS[lead.temperatura || '']?.color || COLORS.gold });
-  if (lead.tipo_solucao_sugerida) insights.push({ title: 'SOLUÇÃO SUGERIDA', icon: '✦', text: lead.tipo_solucao_sugerida, color: COLORS.yellow });
+  const insights: { title: string; text: string; color: [number, number, number] }[] = [];
+  if (lead.alertas) insights.push({ title: 'ALERTAS', text: lead.alertas, color: COLORS.red });
+  if (lead.justificativa_temperatura) insights.push({ title: 'JUSTIFICATIVA DA TEMPERATURA', text: lead.justificativa_temperatura, color: TEMP_LABELS[lead.temperatura || '']?.color || COLORS.gold });
+  if (lead.tipo_solucao_sugerida) insights.push({ title: 'SOLUCAO SUGERIDA', text: lead.tipo_solucao_sugerida, color: COLORS.yellow });
 
   if (insights.length > 0) {
     checkPage(15);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORS.gold);
-    doc.text('◈  INSIGHTS DA SOFIA', MARGIN, y);
-    y += 4;
+    y = drawSectionTitle('INSIGHTS DA SOFIA', y);
     drawLine(MARGIN, y, MARGIN + CONTENT_W, COLORS.gold, 0.2);
     y += 6;
 
@@ -352,10 +355,13 @@ export function exportFichaPDF(
       doc.rect(MARGIN + 2, y, CONTENT_W - 4, 0.6, 'F');
 
       let iy = y + 8;
+      // Small colored circle as icon
+      doc.setFillColor(...insight.color);
+      doc.circle(MARGIN + 8, iy - 1.2, 1.5, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(...insight.color);
-      doc.text(`${insight.icon}  ${insight.title}`, MARGIN + 6, iy);
+      doc.text(insight.title, MARGIN + 12, iy);
       iy += 5;
 
       doc.setFont('helvetica', 'normal');
@@ -379,7 +385,7 @@ export function exportFichaPDF(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(...COLORS.textDim);
-    doc.text('VVeronez.Dev — Ficha gerada automaticamente', MARGIN, PAGE_H - 4);
+    doc.text('VVeronez.Dev - Ficha gerada automaticamente', MARGIN, PAGE_H - 4);
     doc.text(`${p}/${pages}`, PAGE_W - MARGIN, PAGE_H - 4, { align: 'right' });
   }
 
@@ -404,19 +410,17 @@ function drawFieldCard(doc: jsPDF, field: FichaCampo, x: number, fy: number, w: 
   const meta = CAMPO_META[field.campo];
   const color = meta?.color || COLORS.gold;
   const label = meta?.label || field.campo;
-  const icon = meta?.icon || '◇';
 
   // Card background
   doc.setFillColor(...COLORS.cardBg);
   doc.roundedRect(x, fy, w, h, 2, 2, 'F');
 
-  // Icon circle
+  // Icon circle (solid colored dot)
   doc.setFillColor(color[0], color[1], color[2]);
   doc.circle(x + 8, fy + 7, 3.5, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(255, 255, 255);
-  doc.text(icon, x + 8, fy + 8.2, { align: 'center' });
+  // Inner dot for visual depth
+  doc.setFillColor(255, 255, 255);
+  doc.circle(x + 8, fy + 7, 1.2, 'F');
 
   // Label
   doc.setFont('helvetica', 'bold');
