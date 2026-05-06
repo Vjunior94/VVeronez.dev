@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { exportFichaPDF } from '@/lib/export-ficha-pdf';
 import { exportPropostaPDF } from '@/lib/export-proposta-pdf';
+import { exportPublicadaPDF } from '@/lib/export-publicada-pdf';
 
 interface Lead {
   id: string;
@@ -53,6 +54,48 @@ interface Mensagem {
   created_at: string;
 }
 
+interface ConteudoPagina {
+  hero_titulo: string;
+  hero_subtitulo: string;
+  hero_media_url: string;
+  hero_media_type: 'image' | 'video' | 'gif';
+  problema_titulo: string;
+  problema_texto: string;
+  problema_imagem_url?: string;
+  solucao_titulo: string;
+  solucao_texto: string;
+  solucao_imagem_url?: string;
+  modulos: { nome: string; descricao: string; horas: number; fase: string }[];
+  stack: string[];
+  cronograma: { fase: string; descricao: string; semanas: number; entregaveis: string[] }[];
+  investimento_total: string;
+  investimento_nota: string;
+  investimento_imagem_url?: string;
+  servicos: { nome: string; custo: string }[];
+  riscos: string;
+  cta_titulo: string;
+  cta_texto: string;
+  cta_imagem_url?: string;
+  senha_acesso: string;
+  validade_dias: number;
+  resumo_executivo?: {
+    saudacao: string;
+    tipo_projeto: string;
+    entendimento_do_cliente: string;
+    entrega_em_uma_frase: string;
+    numeros_chave: {
+      investimento: { valor_total: string; forma_pagamento_resumida: string; valor_mensal_recorrente?: string | null };
+      prazo: { duracao: string; data_estimada_entrega: string };
+      escopo_resumido: { destaque_numerico: string; complemento: string };
+    };
+    o_que_voce_recebe: string[];
+    o_que_nao_esta_incluso: string[];
+    proximo_passo: { texto: string; tipo_acao: string; link_ou_contato: string };
+    entrega_imagem_url?: string;
+  };
+  tema?: Record<string, string>;
+}
+
 interface Proposta {
   id: string;
   status: string;
@@ -67,6 +110,9 @@ interface Proposta {
   valor_hora_centavos: number;
   riscos: string | null;
   observacoes: string | null;
+  senha_acesso: string | null;
+  conteudo_pagina: ConteudoPagina | null;
+  created_at: string;
 }
 
 interface Servico {
@@ -175,7 +221,7 @@ export default function LeadDetailPage() {
   const [propostas, setPropostas] = useState<Proposta[]>([]);
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [servicos, setServicos] = useState<Servico[]>([]);
-  const [tab, setTab] = useState<'ficha' | 'conversa' | 'proposta'>('ficha');
+  const [tab, setTab] = useState<'ficha' | 'conversa' | 'proposta' | 'publicadas'>('ficha');
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
   const [editingProposta, setEditingProposta] = useState(false);
@@ -326,10 +372,13 @@ export default function LeadDetailPage() {
   ficha.forEach(f => fichaMap.set(f.campo, f));
   const fichaUnique = Array.from(fichaMap.values());
 
+  const publicadas = propostas.filter(p => p.senha_acesso && p.conteudo_pagina);
+
   const tabs = [
     { key: 'ficha' as const, label: 'Ficha', icon: <ClipboardList size={14} /> },
     { key: 'conversa' as const, label: 'Conversa', icon: <MessageSquare size={14} /> },
     { key: 'proposta' as const, label: `Proposta${propostas.length > 0 ? ` (${propostas.length})` : ''}`, icon: <FileText size={14} /> },
+    ...(publicadas.length > 0 ? [{ key: 'publicadas' as const, label: `Publicadas (${publicadas.length})`, icon: <Globe size={14} /> }] : []),
   ];
 
   return (
@@ -975,6 +1024,218 @@ export default function LeadDetailPage() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Tab: Publicadas */}
+      {tab === 'publicadas' && (
+        <div style={{ display: 'grid', gap: '1.5rem' }}>
+          {publicadas.map((p) => {
+            const cp = p.conteudo_pagina!;
+            const re = cp.resumo_executivo;
+            return (
+              <div key={p.id} className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
+                {/* Hero */}
+                <div style={{
+                  padding: '1.5rem 1.8rem', background: 'linear-gradient(135deg, rgba(200,130,107,0.12), rgba(200,131,154,0.08))',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.2rem', fontFamily: "var(--font-cinzel)", color: 'var(--gold-100)', margin: 0, lineHeight: 1.3 }}>
+                        {cp.hero_titulo}
+                      </h3>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>{cp.hero_subtitulo}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                      <a
+                        href={`/proposta/${p.id}`}
+                        target="_blank"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.35rem 0.7rem', fontSize: '0.68rem',
+                          background: 'none', border: '1px solid rgba(95,208,184,0.3)',
+                          color: '#5fd0b8', textDecoration: 'none',
+                          fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
+                        }}
+                      >
+                        <Globe size={12} /> Ver
+                      </a>
+                      <a
+                        href={`/propostas/editor/${p.id}`}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.35rem 0.7rem', fontSize: '0.68rem',
+                          background: 'none', border: '1px solid var(--border-subtle)',
+                          color: 'var(--gold-300)', textDecoration: 'none',
+                          fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
+                        }}
+                      >
+                        <Pencil size={12} /> Editar
+                      </a>
+                      <button
+                        onClick={() => exportPublicadaPDF(lead!, cp)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.35rem 0.7rem', fontSize: '0.68rem',
+                          background: 'none', border: '1px solid rgba(212,160,74,0.3)',
+                          color: 'var(--gold-300)', cursor: 'pointer',
+                          fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
+                        }}
+                      >
+                        <Download size={12} /> PDF
+                      </button>
+                    </div>
+                  </div>
+                  {/* Senha + link */}
+                  <div style={{ display: 'flex', gap: '1rem', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                    <span>Senha: <strong style={{ color: 'var(--gold-300)' }}>{cp.senha_acesso}</strong></span>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/proposta/${p.id}`); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.72rem', padding: 0 }}
+                    >
+                      <Copy size={11} /> Copiar link
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ padding: '1.2rem 1.8rem', display: 'grid', gap: '1rem' }}>
+                  {/* Resumo Executivo */}
+                  {re && (
+                    <div>
+                      <div className="dash-card-label">Resumo Executivo</div>
+                      <p style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-primary)', marginBottom: '0.6rem' }}>
+                        {re.entendimento_do_cliente}
+                      </p>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--gold-300)', fontStyle: 'italic' }}>
+                        {re.entrega_em_uma_frase}
+                      </p>
+
+                      {/* Numeros chave */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginTop: '0.8rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>Investimento</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--gold-100)' }}>{re.numeros_chave.investimento.valor_total}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{re.numeros_chave.investimento.forma_pagamento_resumida}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>Prazo</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 600, color: '#5fd0b8' }}>{re.numeros_chave.prazo.duracao}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{re.numeros_chave.prazo.data_estimada_entrega}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>Escopo</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 600, color: '#5ba8d4' }}>{re.numeros_chave.escopo_resumido.destaque_numerico}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{re.numeros_chave.escopo_resumido.complemento}</div>
+                        </div>
+                      </div>
+
+                      {/* O que voce recebe */}
+                      {re.o_que_voce_recebe && re.o_que_voce_recebe.length > 0 && (
+                        <div style={{ marginTop: '0.8rem' }}>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>O que voce recebe</div>
+                          <div style={{ display: 'grid', gap: '0.25rem' }}>
+                            {re.o_que_voce_recebe.map((item, i) => (
+                              <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                                <span style={{ color: '#5fd0b8', flexShrink: 0 }}>+</span>
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Problema / Solucao */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                    <div>
+                      <div className="dash-card-label" style={{ color: '#e85d75' }}>{cp.problema_titulo}</div>
+                      <p style={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{cp.problema_texto}</p>
+                    </div>
+                    <div>
+                      <div className="dash-card-label" style={{ color: '#5fd0b8' }}>{cp.solucao_titulo}</div>
+                      <p style={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{cp.solucao_texto}</p>
+                    </div>
+                  </div>
+
+                  {/* Modulos */}
+                  {cp.modulos && cp.modulos.length > 0 && (
+                    <div>
+                      <div className="dash-card-label">Escopo ({cp.modulos.length} modulos)</div>
+                      <div style={{ display: 'grid', gap: '0.4rem', marginTop: '0.4rem' }}>
+                        {cp.modulos.map((m, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontSize: '0.82rem', color: 'var(--gold-100)', fontWeight: 500 }}>{m.nome}</span>
+                              {m.descricao && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{m.descricao}</p>}
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                              {m.horas}h | {m.fase}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cronograma */}
+                  {cp.cronograma && cp.cronograma.length > 0 && (
+                    <div>
+                      <div className="dash-card-label">Cronograma</div>
+                      <div style={{ display: 'grid', gap: '0.4rem', marginTop: '0.4rem' }}>
+                        {cp.cronograma.map((etapa, i) => (
+                          <div key={i} style={{ display: 'flex', gap: '0.7rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                              background: 'rgba(212,160,74,0.15)', border: '1px solid rgba(212,160,74,0.3)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '0.7rem', fontWeight: 600, color: 'var(--gold-300)',
+                            }}>
+                              {i + 1}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.82rem', color: 'var(--gold-100)', fontWeight: 500 }}>{etapa.fase}</div>
+                              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{etapa.descricao}</p>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#5fd0b8', whiteSpace: 'nowrap' }}>{etapa.semanas} sem.</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Investimento + Servicos */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                    <div style={{ background: 'rgba(212,160,74,0.06)', padding: '0.8rem 1rem', borderRadius: '6px', border: '1px solid rgba(212,160,74,0.15)' }}>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Investimento</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--gold-100)' }}>{cp.investimento_total}</div>
+                      {cp.investimento_nota && <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>{cp.investimento_nota}</p>}
+                    </div>
+                    {cp.servicos && cp.servicos.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>Servicos mensais</div>
+                        {cp.servicos.map((s, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-primary)', padding: '0.2rem 0' }}>
+                            <span>{s.nome}</span>
+                            <span style={{ color: 'var(--text-dim)' }}>{s.custo}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Riscos */}
+                  {cp.riscos && (
+                    <div>
+                      <div className="dash-card-label" style={{ color: '#d4a04a' }}>Riscos</div>
+                      <p style={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{cp.riscos}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
