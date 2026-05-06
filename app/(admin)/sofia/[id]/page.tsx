@@ -12,6 +12,7 @@ import {
   Globe, Link2, Copy, Quote, Phone, Clock, Hourglass, Zap, Download,
 } from 'lucide-react';
 import { exportFichaPDF } from '@/lib/export-ficha-pdf';
+import { exportPropostaPDF } from '@/lib/export-proposta-pdf';
 
 interface Lead {
   id: string;
@@ -947,6 +948,19 @@ export default function LeadDetailPage() {
                   }}>
                     <FileText size={16} /> Gerador de Proposta
                   </a>
+                  <button
+                    onClick={() => exportPropostaPDF(lead, p, modulos, servicos)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.7rem 1.8rem',
+                      background: 'none',
+                      border: '1px solid rgba(212,160,74,0.3)', color: 'var(--gold-300)',
+                      fontSize: '0.8rem', fontFamily: "var(--font-jetbrains)",
+                      letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
+                    }}
+                  >
+                    <Download size={16} /> Exportar PDF
+                  </button>
                   {publishedUrl && (
                     <button onClick={handleCopyLink} style={{
                       display: 'flex', alignItems: 'center', gap: '0.3rem',
