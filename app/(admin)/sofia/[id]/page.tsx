@@ -9,8 +9,9 @@ import {
   ArrowLeft, FileText, MessageSquare, ClipboardList, Flame, Sun, Snowflake, Trash2,
   Briefcase, Target, TrendingUp, Users, Calendar, Wallet, GitBranch, User, StickyNote,
   AlertTriangle, Thermometer, Lightbulb, Send, Loader2, Pencil, Check, X, RotateCcw,
-  Globe, Link2, Copy, Quote, Phone, Clock, Hourglass, Zap,
+  Globe, Link2, Copy, Quote, Phone, Clock, Hourglass, Zap, Download,
 } from 'lucide-react';
+import { exportFichaPDF } from '@/lib/export-ficha-pdf';
 
 interface Lead {
   id: string;
@@ -367,17 +368,30 @@ export default function LeadDetailPage() {
             <span style={{ color: 'var(--text-dim)' }}>{formatDate(lead.created_at)}</span>
           </div>
         </div>
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          style={{
-            background: 'none', border: '1px solid rgba(220,50,50,0.3)', color: '#e88', cursor: 'pointer',
-            padding: '0.4rem 0.8rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-            fontFamily: "var(--font-jetbrains)", transition: 'all 0.2s',
-          }}
-          title="Apagar lead"
-        >
-          <Trash2 size={14} /> Apagar
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => exportFichaPDF(lead, ficha, frasesOuro)}
+            style={{
+              background: 'none', border: '1px solid rgba(212,160,74,0.3)', color: 'var(--gold-300)', cursor: 'pointer',
+              padding: '0.4rem 0.8rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+              fontFamily: "var(--font-jetbrains)", transition: 'all 0.2s',
+            }}
+            title="Exportar ficha em PDF"
+          >
+            <Download size={14} /> PDF
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{
+              background: 'none', border: '1px solid rgba(220,50,50,0.3)', color: '#e88', cursor: 'pointer',
+              padding: '0.4rem 0.8rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+              fontFamily: "var(--font-jetbrains)", transition: 'all 0.2s',
+            }}
+            title="Apagar lead"
+          >
+            <Trash2 size={14} /> Apagar
+          </button>
+        </div>
       </div>
 
       {showDeleteConfirm && (
