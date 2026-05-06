@@ -14,19 +14,26 @@ interface Lead {
 interface ConteudoPagina {
   hero_titulo: string;
   hero_subtitulo: string;
+  hero_media_url?: string;
+  hero_media_type?: string;
   problema_titulo: string;
   problema_texto: string;
+  problema_imagem_url?: string;
   solucao_titulo: string;
   solucao_texto: string;
+  solucao_imagem_url?: string;
   modulos: { nome: string; descricao: string; horas: number; fase: string }[];
   stack: string[];
   cronograma: { fase: string; descricao: string; semanas: number; entregaveis: string[] }[];
   investimento_total: string;
   investimento_nota: string;
+  investimento_imagem_url?: string;
   servicos: { nome: string; custo: string }[];
   riscos: string;
   cta_titulo: string;
   cta_texto: string;
+  cta_imagem_url?: string;
+  senha_acesso: string;
   validade_dias: number;
   resumo_executivo?: {
     saudacao: string;
@@ -41,8 +48,9 @@ interface ConteudoPagina {
     o_que_voce_recebe: string[];
     o_que_nao_esta_incluso: string[];
     proximo_passo: { texto: string; tipo_acao: string; link_ou_contato: string };
+    entrega_imagem_url?: string;
   };
-  [key: string]: unknown;
+  tema?: Record<string, string>;
 }
 
 export function exportPublicadaPDF(lead: Lead, cp: ConteudoPagina) {
