@@ -303,6 +303,18 @@ export default function LeadDetailPage() {
     }
   };
 
+  const handleDeleteProposta = async (propostaId: string) => {
+    const confirmar = window.confirm('Tem certeza que deseja apagar esta proposta? Essa ação não pode ser desfeita.');
+    if (!confirmar) return;
+    const supabase = createClient();
+    await supabase.from('proposta_modulos').delete().eq('proposta_id', propostaId);
+    await supabase.from('proposta_servicos').delete().eq('proposta_id', propostaId);
+    await supabase.from('propostas').delete().eq('id', propostaId);
+    setPropostas(prev => prev.filter(p => p.id !== propostaId));
+    setModulos([]);
+    setServicos([]);
+  };
+
   const handleStartEdit = (p: Proposta) => {
     setEditForm({
       custo_total_centavos: p.custo_total_centavos,
@@ -802,14 +814,24 @@ export default function LeadDetailPage() {
                     {p.status === 'pronta' ? 'Pronta' : p.status === 'revisada' ? 'Revisada' : p.status === 'gerando' ? 'Gerando...' : p.status}
                   </span>
                   {!editingProposta ? (
-                    <button onClick={() => handleStartEdit(p)} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none',
-                      border: '1px solid var(--border-subtle)', color: 'var(--gold-300)',
-                      padding: '0.35rem 0.8rem', fontSize: '0.7rem', cursor: 'pointer',
-                      fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
-                    }}>
-                      <Pencil size={12} /> Editar
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button onClick={() => handleStartEdit(p)} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none',
+                        border: '1px solid var(--border-subtle)', color: 'var(--gold-300)',
+                        padding: '0.35rem 0.8rem', fontSize: '0.7rem', cursor: 'pointer',
+                        fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
+                      }}>
+                        <Pencil size={12} /> Editar
+                      </button>
+                      <button onClick={() => handleDeleteProposta(p.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none',
+                        border: '1px solid rgba(220,50,50,0.3)', color: 'rgba(220,50,50,0.8)',
+                        padding: '0.35rem 0.8rem', fontSize: '0.7rem', cursor: 'pointer',
+                        fontFamily: "var(--font-jetbrains)", letterSpacing: '0.05em',
+                      }}>
+                        <Trash2 size={12} /> Apagar
+                      </button>
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button onClick={() => handleSaveProposta(p.id)} disabled={saving} style={{
