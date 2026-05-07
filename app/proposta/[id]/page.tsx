@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { DollarSign, Clock, LayoutGrid, Check, Minus } from 'lucide-react';
+import { DollarSign, Clock, LayoutGrid, Check, Minus, CheckCircle } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -122,6 +122,14 @@ export default function PropostaPublicaPage() {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [cliente, setCliente] = useState('');
   const [conteudo, setConteudo] = useState<any>(null);
+  const [respostas, setRespostas] = useState<any[]>([]);
+  const [respNome, setRespNome] = useState('');
+  const [respEmail, setRespEmail] = useState('');
+  const [respMotivo, setRespMotivo] = useState('');
+  const [respLoading, setRespLoading] = useState(false);
+  const [respErro, setRespErro] = useState('');
+  const [respSucesso, setRespSucesso] = useState<string | null>(null);
+  const [respTab, setRespTab] = useState<'aceitar' | 'recusar' | 'consideracoes'>('aceitar');
 
   const handleUnlock = async () => {
     if (!id || !senha.trim()) return;
@@ -136,9 +144,29 @@ export default function PropostaPublicaPage() {
       const data = await res.json();
       setProposta(data.proposta); setModulos(data.modulos); setServicos(data.servicos);
       setCliente(data.cliente);
+      if (data.respostas) setRespostas(data.respostas);
       if (data.proposta.conteudo_pagina) setConteudo(data.proposta.conteudo_pagina);
       setUnlocked(true);
     } catch { setError('Erro ao acessar.'); } finally { setLoading(false); }
+  };
+
+  const respostaDefinitiva = respostas.find((r: any) => r.status === 'aceito' || r.status === 'recusado');
+
+  const handleResposta = async (status: 'aceito' | 'recusado' | 'consideracoes') => {
+    if (!respNome.trim() || !respEmail.trim()) return;
+    if (status === 'recusado' && !respMotivo.trim()) return;
+    if (status === 'consideracoes' && !respMotivo.trim()) return;
+    setRespLoading(true); setRespErro('');
+    try {
+      const res = await fetch(`/api/proposta/${id}/aceitar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: respNome.trim(), email: respEmail.trim(), status, motivo: respMotivo.trim() || null }),
+      });
+      if (res.status === 409) { setRespSucesso(status); setRespLoading(false); return; }
+      if (!res.ok) { setRespErro('Erro ao enviar. Tente novamente.'); setRespLoading(false); return; }
+      setRespSucesso(status);
+      setRespostas(prev => [...prev, { nome: respNome.trim(), email: respEmail.trim(), status, motivo: respMotivo.trim(), aceito_em: new Date().toISOString() }]);
+    } catch { setRespErro('Erro de conexão.'); } finally { setRespLoading(false); }
   };
 
   const c = conteudo;
@@ -401,6 +429,96 @@ export default function PropostaPublicaPage() {
           <div className="risk-card">{renderMd(displayRiscos)}</div>
         </section>
       )}
+
+      {/* Resposta do cliente */}
+      <section className="prop-section anim-section" id="aceite-proposta">
+        <div className="section-tag">Sua resposta</div>
+        <h2 className="section-title">O que você<br />achou?</h2>
+
+        {respostaDefinitiva || respSucesso ? (
+          <div className="aceite-success" style={{
+            borderColor: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'rgba(95,208,184,0.15)' :
+              (respostaDefinitiva?.status || respSucesso) === 'recusado' ? 'rgba(192,80,74,0.15)' : 'rgba(200,130,107,0.15)',
+            background: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'rgba(95,208,184,0.04)' :
+              (respostaDefinitiva?.status || respSucesso) === 'recusado' ? 'rgba(192,80,74,0.04)' : 'rgba(200,130,107,0.04)',
+          }}>
+            <CheckCircle size={48} style={{
+              color: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'var(--teal)' :
+                (respostaDefinitiva?.status || respSucesso) === 'recusado' ? '#c0504a' : 'var(--bronze)',
+              marginBottom: '1rem',
+            }} />
+            <div className="aceite-success-title" style={{
+              color: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'var(--teal)' :
+                (respostaDefinitiva?.status || respSucesso) === 'recusado' ? '#c0504a' : 'var(--bronze)',
+            }}>
+              {(respostaDefinitiva?.status || respSucesso) === 'aceito' && 'Proposta aceita!'}
+              {(respostaDefinitiva?.status || respSucesso) === 'recusado' && 'Proposta recusada'}
+              {(respostaDefinitiva?.status || respSucesso) === 'consideracoes' && 'Considerações enviadas!'}
+            </div>
+            <div className="aceite-success-info">
+              {respostaDefinitiva?.nome && <span>Por {respostaDefinitiva.nome}</span>}
+              {respostaDefinitiva?.aceito_em && <span> em {new Date(respostaDefinitiva.aceito_em).toLocaleDateString('pt-BR')}</span>}
+            </div>
+            <p className="aceite-success-text">
+              {(respostaDefinitiva?.status || respSucesso) === 'aceito' && 'Valmir entrará em contato para alinhar os detalhes e preparar o contrato, que será revisado por ambas as partes antes de qualquer compromisso.'}
+              {(respostaDefinitiva?.status || respSucesso) === 'recusado' && 'Agradecemos seu retorno. Valmir pode entrar em contato para entender melhor e, se fizer sentido, ajustar a proposta.'}
+              {(respostaDefinitiva?.status || respSucesso) === 'consideracoes' && 'Suas considerações foram recebidas. Valmir analisará seus pontos e entrará em contato em breve.'}
+            </p>
+          </div>
+        ) : (
+          <div className="aceite-form-wrap">
+            {/* Tabs */}
+            <div className="resp-tabs">
+              <button className={`resp-tab${respTab === 'aceitar' ? ' resp-tab--active resp-tab--aceitar' : ''}`} onClick={() => setRespTab('aceitar')}>Aceitar</button>
+              <button className={`resp-tab${respTab === 'consideracoes' ? ' resp-tab--active resp-tab--consideracoes' : ''}`} onClick={() => setRespTab('consideracoes')}>Considerações</button>
+              <button className={`resp-tab${respTab === 'recusar' ? ' resp-tab--active resp-tab--recusar' : ''}`} onClick={() => setRespTab('recusar')}>Recusar</button>
+            </div>
+
+            {/* Descrição do que cada ação significa */}
+            <div className="resp-desc">
+              {respTab === 'aceitar' && (
+                <p>Aceitar a proposta <strong>não é um fechamento de negócio</strong>. Significa que você está de acordo com o escopo e valores apresentados. O próximo passo será alinhar os detalhes e gerar um contrato formal, que será revisado e aprovado por ambas as partes.</p>
+              )}
+              {respTab === 'consideracoes' && (
+                <p>Tem dúvidas, sugestões ou pontos que gostaria de discutir antes de tomar uma decisão? Envie suas considerações abaixo. A proposta continuará disponível para aceite ou recusa depois.</p>
+              )}
+              {respTab === 'recusar' && (
+                <p>Se a proposta não atende suas expectativas, informe o motivo abaixo. Seu feedback é importante para entendermos melhor suas necessidades.</p>
+              )}
+            </div>
+
+            <div className="aceite-form">
+              <input type="text" className="aceite-input" placeholder="Seu nome completo" value={respNome} onChange={e => setRespNome(e.target.value)} />
+              <input type="email" className="aceite-input" placeholder="Seu melhor email" value={respEmail} onChange={e => setRespEmail(e.target.value)} />
+
+              {respTab === 'recusar' && (
+                <textarea className="aceite-input aceite-textarea" placeholder="Motivo da recusa (obrigatório)" value={respMotivo} onChange={e => setRespMotivo(e.target.value)} rows={4} />
+              )}
+              {respTab === 'consideracoes' && (
+                <textarea className="aceite-input aceite-textarea" placeholder="Suas considerações, dúvidas ou sugestões (obrigatório)" value={respMotivo} onChange={e => setRespMotivo(e.target.value)} rows={4} />
+              )}
+
+              {respErro && <div className="aceite-erro">{respErro}</div>}
+
+              {respTab === 'aceitar' && (
+                <button className="aceite-btn aceite-btn--aceitar" onClick={() => handleResposta('aceito')} disabled={respLoading || !respNome.trim() || !respEmail.trim()}>
+                  {respLoading ? 'Enviando...' : 'Aceitar proposta e avançar'}
+                </button>
+              )}
+              {respTab === 'consideracoes' && (
+                <button className="aceite-btn aceite-btn--consideracoes" onClick={() => handleResposta('consideracoes')} disabled={respLoading || !respNome.trim() || !respEmail.trim() || !respMotivo.trim()}>
+                  {respLoading ? 'Enviando...' : 'Enviar considerações'}
+                </button>
+              )}
+              {respTab === 'recusar' && (
+                <button className="aceite-btn aceite-btn--recusar" onClick={() => handleResposta('recusado')} disabled={respLoading || !respNome.trim() || !respEmail.trim() || !respMotivo.trim()}>
+                  {respLoading ? 'Enviando...' : 'Recusar proposta'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* CTA */}
       <div className="prop-cta anim-section">
@@ -765,6 +883,35 @@ const pageCSS = `
 /* Risk */
 .risk-card { padding:2rem; background:var(--bg2); border:1px solid rgba(200,130,107,0.2); border-radius:14px; font-size:15px; line-height:1.75; margin-top:1.5rem; }
 .risk-card strong { color:var(--cream); font-weight:500; }
+
+/* Resposta / Aceite */
+.aceite-form-wrap { max-width:520px; margin:2rem auto 0; }
+.resp-tabs { display:flex; gap:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1.5rem; }
+.resp-tab { flex:1; padding:12px 8px; background:transparent; border:none; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; letter-spacing:0.03em; }
+.resp-tab:not(:last-child) { border-right:1px solid var(--border); }
+.resp-tab--active.resp-tab--aceitar { background:rgba(95,208,184,0.08); color:var(--teal); }
+.resp-tab--active.resp-tab--consideracoes { background:rgba(200,130,107,0.08); color:var(--bronze); }
+.resp-tab--active.resp-tab--recusar { background:rgba(192,80,74,0.08); color:#c0504a; }
+.resp-desc { margin-bottom:1.5rem; }
+.resp-desc p { font-size:14px; color:var(--muted); line-height:1.7; margin:0; }
+.resp-desc strong { color:var(--cream); }
+.aceite-form { display:grid; gap:1rem; }
+.aceite-input { width:100%; padding:14px 16px; background:var(--bg3); border:1px solid var(--border); color:var(--cream); font-size:15px; outline:none; transition:border-color 0.2s; box-sizing:border-box; border-radius:10px; }
+.aceite-input:focus { border-color:var(--bronze); }
+.aceite-textarea { resize:vertical; min-height:100px; font-family:inherit; line-height:1.6; }
+.aceite-erro { font-size:12px; color:#c0504a; }
+.aceite-btn { width:100%; padding:14px; font-size:13px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; border:none; cursor:pointer; transition:all 0.3s; border-radius:10px; }
+.aceite-btn:hover:not(:disabled) { opacity:0.9; transform:translateY(-1px); }
+.aceite-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.aceite-btn--aceitar { background:var(--teal); color:var(--bg); }
+.aceite-btn--consideracoes { background:var(--bronze); color:var(--bg); }
+.aceite-btn--recusar { background:transparent; border:1px solid #c0504a; color:#c0504a; }
+.aceite-btn--recusar:hover:not(:disabled) { background:rgba(192,80,74,0.1); }
+.aceite-success { text-align:center; padding:3rem 2rem; border:1px solid; border-radius:16px; margin-top:2rem; }
+.aceite-success-title { font-family:'Cinzel',Georgia,serif; font-size:28px; font-weight:600; margin-bottom:0.5rem; }
+.aceite-success-info { font-size:14px; color:var(--muted); margin-bottom:1rem; }
+.aceite-success-info span { margin:0 0.2rem; }
+.aceite-success-text { font-size:15px; color:var(--muted); line-height:1.7; }
 
 /* CTA */
 .prop-cta { text-align:center; padding:6rem 3rem; border-top:1px solid var(--border); max-width:960px; margin:0 auto; position:relative; overflow:hidden; }

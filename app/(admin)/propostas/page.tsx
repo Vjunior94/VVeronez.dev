@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil, Eye } from 'lucide-react';
+import { Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil, Eye, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 
 interface PropostaPublicada {
   id: string;
@@ -15,6 +15,7 @@ interface PropostaPublicada {
   ultimo_acesso_cliente: string | null;
   created_at: string;
   leads: { nome_cliente: string | null; whatsapp_numero: string } | null;
+  proposta_aceites: { nome: string; aceito_em: string; status: string }[] | null;
 }
 
 function formatBRL(centavos: number) {
@@ -42,7 +43,7 @@ export default function PropostasPublicadasPage() {
       const supabase = createClient();
       const { data } = await supabase
         .from('propostas')
-        .select('id, lead_id, status, resumo, custo_total_centavos, total_horas, senha_acesso, ultimo_acesso_cliente, created_at, leads(nome_cliente, whatsapp_numero)')
+        .select('id, lead_id, status, resumo, custo_total_centavos, total_horas, senha_acesso, ultimo_acesso_cliente, created_at, leads(nome_cliente, whatsapp_numero), proposta_aceites(nome, aceito_em, status)')
         .order('created_at', { ascending: false });
       setPropostas((data ?? []) as unknown as PropostaPublicada[]);
       setLoading(false);
@@ -110,8 +111,30 @@ export default function PropostasPublicadasPage() {
                   <div key={p.id} className="dash-card" style={{ padding: '1.2rem 1.5rem', borderColor: 'rgba(95,208,184,0.2)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '1rem', color: 'var(--gold-100)', fontWeight: 500, marginBottom: '0.3rem' }}>
+                        <div style={{ fontSize: '1rem', color: 'var(--gold-100)', fontWeight: 500, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           {p.leads?.nome_cliente || 'Cliente sem nome'}
+                          {(() => {
+                            const aceites = p.proposta_aceites || [];
+                            const aceito = aceites.find(a => a.status === 'aceito');
+                            const recusado = aceites.find(a => a.status === 'recusado');
+                            const consideracoes = aceites.find(a => a.status === 'consideracoes');
+                            if (aceito) return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.65rem', fontWeight: 600, color: '#5fd0b8', background: 'rgba(95,208,184,0.1)', border: '1px solid rgba(95,208,184,0.25)', padding: '0.15rem 0.5rem', fontFamily: 'var(--font-jetbrains)', letterSpacing: '0.05em' }}>
+                                <CheckCircle size={11} /> Aceita
+                              </span>
+                            );
+                            if (recusado) return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.65rem', fontWeight: 600, color: '#e88', background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.25)', padding: '0.15rem 0.5rem', fontFamily: 'var(--font-jetbrains)', letterSpacing: '0.05em' }}>
+                                <XCircle size={11} /> Recusada
+                              </span>
+                            );
+                            if (consideracoes) return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.65rem', fontWeight: 600, color: 'var(--gold-300)', background: 'rgba(212,160,74,0.1)', border: '1px solid rgba(212,160,74,0.25)', padding: '0.15rem 0.5rem', fontFamily: 'var(--font-jetbrains)', letterSpacing: '0.05em' }}>
+                                <MessageCircle size={11} /> Considerações
+                              </span>
+                            );
+                            return null;
+                          })()}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
                           {formatBRL(p.custo_total_centavos)} · {p.total_horas}h · Senha: <code style={{ color: 'var(--gold-300)', background: 'rgba(255,255,255,0.04)', padding: '0.1rem 0.4rem' }}>{p.senha_acesso}</code>

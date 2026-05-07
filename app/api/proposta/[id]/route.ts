@@ -43,10 +43,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     proposta_id: id, cidade: cidade ? decodeURIComponent(cidade) : null, estado, pais, ip, user_agent: userAgent,
   }).then(() => {});
 
-  // Fetch modules and services
-  const [modsRes, servsRes] = await Promise.all([
+  // Fetch modules, services, and respostas
+  const [modsRes, servsRes, respostasRes] = await Promise.all([
     supabase.from('proposta_modulos').select('*').eq('proposta_id', id).order('ordem'),
     supabase.from('proposta_servicos').select('*').eq('proposta_id', id),
+    supabase.from('proposta_aceites').select('*').eq('proposta_id', id).order('aceito_em', { ascending: false }),
   ]);
 
   return NextResponse.json({
@@ -54,5 +55,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     modulos: modsRes.data ?? [],
     servicos: servsRes.data ?? [],
     cliente: proposta.leads?.nome_cliente || 'Cliente',
+    respostas: respostasRes.data ?? [],
   });
 }

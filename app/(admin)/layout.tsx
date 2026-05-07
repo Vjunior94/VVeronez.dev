@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LayoutDashboard, MessageSquare, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight, Globe } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight, Globe, Columns3, BarChart3 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sofia', label: 'Sofia', icon: MessageSquare },
   { href: '/agenor', label: 'Agenor', icon: FileText },
   { href: '/propostas', label: 'Propostas Publicadas', icon: Globe },
+  { href: '/pipeline', label: 'Pipeline', icon: Columns3 },
+  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
