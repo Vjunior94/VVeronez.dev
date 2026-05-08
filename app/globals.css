@@ -2186,6 +2186,8 @@ footer {
   }
   .admin-main {
     margin-left: 0;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
   .admin-mobile-toggle {
     display: flex;
@@ -2198,8 +2200,40 @@ footer {
     z-index: 35;
   }
   .admin-content {
-    padding: 1.5rem;
+    padding: 1rem;
     padding-top: 4rem;
+    overflow-x: hidden;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  .admin-header {
+    padding: 1rem;
+    padding-top: 3.5rem;
+  }
+  .admin-page-title {
+    font-size: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.8rem;
+  }
+  .dash-card {
+    padding: 1rem;
+  }
+  .dash-card-value {
+    font-size: 1.5rem;
+  }
+  .dash-card-label {
+    font-size: 0.6rem;
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .admin-table th {
+    font-size: 0.55rem;
   }
 }
 
