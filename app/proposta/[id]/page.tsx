@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { DollarSign, Clock, LayoutGrid, Check, Minus, CheckCircle, ChevronLeft, ChevronRight, ArrowDown } from 'lucide-react';
+import { DollarSign, Clock, LayoutGrid, Check, Minus, CheckCircle } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -130,40 +130,6 @@ export default function PropostaPublicaPage() {
   const [respErro, setRespErro] = useState('');
   const [respSucesso, setRespSucesso] = useState<string | null>(null);
   const [respTab, setRespTab] = useState<'aceitar' | 'recusar' | 'consideracoes'>('aceitar');
-  const [viewMode, setViewMode] = useState<'slides' | 'details'>('slides');
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const slidesRef = useRef<HTMLDivElement>(null);
-
-  const goToSlide = useCallback((index: number) => {
-    if (!slidesRef.current) return;
-    const slides = slidesRef.current.children;
-    if (index < 0 || index >= slides.length) return;
-    slides[index].scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-    setCurrentSlide(index);
-  }, []);
-
-  useEffect(() => {
-    if (viewMode !== 'slides' || !slidesRef.current) return;
-    const container = slidesRef.current;
-    const handleScroll = () => {
-      const scrollLeft = container.scrollLeft;
-      const slideWidth = container.clientWidth;
-      const index = Math.round(scrollLeft / slideWidth);
-      setCurrentSlide(index);
-    };
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (viewMode !== 'slides') return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') goToSlide(currentSlide + 1);
-      if (e.key === 'ArrowLeft') goToSlide(currentSlide - 1);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [viewMode, currentSlide, goToSlide]);
 
   const handleUnlock = async () => {
     if (!id || !senha.trim()) return;
@@ -569,266 +535,16 @@ export default function PropostaPublicaPage() {
     </>
   );
 
-  // ─── Slides data ──────────────────────────────────────────────────
-
-  const slidesData = (() => {
-    const slides: { key: string; render: () => React.ReactNode }[] = [];
-
-    // Slide 1: Hero
-    slides.push({ key: 'hero', render: () => (
-      <div className="sl-slide sl-hero">
-        <div className="sl-hero-glow" />
-        <div className="sl-hero-content">
-          <div className="sl-hero-eyebrow">Proposta Técnica · {new Date().getFullYear()}</div>
-          <h1 className="sl-hero-title">{cliente || 'Sua proposta'}</h1>
-          <div className="sl-hero-subtitle">está pronta.</div>
-          {heroMedia && (
-            <div className="sl-hero-media">
-              {heroMediaType === 'video'
-                ? <video src={heroMedia} autoPlay muted loop playsInline />
-                : <img src={heroMedia} alt="" />}
-            </div>
-          )}
-          <div className="sl-hero-hint">
-            <span>Deslize para explorar</span>
-            <ChevronRight size={16} />
-          </div>
-        </div>
-      </div>
-    )});
-
-    // Slide 2: Entendimento (if RE exists)
-    if (re) {
-      slides.push({ key: 'entendimento', render: () => (
-        <div className="sl-slide sl-understand">
-          <div className="sl-tag">01 — Entendemos você</div>
-          <div className="sl-understand-type">{re.tipo_projeto}</div>
-          <div className="sl-understand-text">{re.entendimento_do_cliente}</div>
-          <div className="sl-understand-divider" />
-          <div className="sl-understand-label">O que você vai ter</div>
-          <div className="sl-understand-oneliner">{re.entrega_em_uma_frase}</div>
-        </div>
-      )});
-    } else if (c?.problema_texto) {
-      slides.push({ key: 'contexto', render: () => (
-        <div className="sl-slide sl-understand">
-          <div className="sl-tag">01 — O desafio</div>
-          <div className="sl-understand-type">{c.problema_titulo}</div>
-          <div className="sl-understand-text">{c.problema_texto}</div>
-          <div className="sl-understand-divider" />
-          <div className="sl-understand-label">A transformação</div>
-          <div className="sl-understand-oneliner">{c.solucao_texto}</div>
-        </div>
-      )});
-    }
-
-    // Slide 3: O que recebe
-    if (re?.o_que_voce_recebe) {
-      slides.push({ key: 'recebe', render: () => (
-        <div className="sl-slide sl-receives">
-          <div className="sl-tag">02 — O que está incluso</div>
-          <div className="sl-receives-list">
-            {re.o_que_voce_recebe.map((item, i) => (
-              <div key={i} className="sl-receives-item">
-                <Check size={18} className="sl-receives-check" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-          {re.o_que_nao_esta_incluso?.length > 0 && (
-            <div className="sl-excludes">
-              <div className="sl-excludes-label">Não incluso nesta proposta</div>
-              {re.o_que_nao_esta_incluso.map((item, i) => (
-                <div key={i} className="sl-excludes-item">
-                  <Minus size={14} />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )});
-    }
-
-    // Slide 4: Números-chave
-    const numSlide = re?.numeros_chave;
-    slides.push({ key: 'numeros', render: () => (
-      <div className="sl-slide sl-numbers">
-        <div className="sl-tag">Números-chave</div>
-        <div className="sl-numbers-grid">
-          <div className="sl-num-card">
-            <DollarSign size={24} className="sl-num-icon" />
-            <div className="sl-num-label">Investimento</div>
-            <div className="sl-num-value">{numSlide?.investimento?.valor_total || investTotal}</div>
-            <div className="sl-num-detail">{numSlide?.investimento?.forma_pagamento_resumida || ''}</div>
-          </div>
-          <div className="sl-num-card">
-            <Clock size={24} className="sl-num-icon" />
-            <div className="sl-num-label">Prazo</div>
-            <div className="sl-num-value">{numSlide?.prazo?.duracao || `${totalSemanas} semanas`}</div>
-            <div className="sl-num-detail">{numSlide?.prazo?.data_estimada_entrega || ''}</div>
-          </div>
-          <div className="sl-num-card">
-            <LayoutGrid size={24} className="sl-num-icon" />
-            <div className="sl-num-label">Escopo</div>
-            <div className="sl-num-value">{numSlide?.escopo_resumido?.destaque_numerico || `${displayModulos.length} módulos`}</div>
-            <div className="sl-num-detail">{numSlide?.escopo_resumido?.complemento || `${totalHoras}h de desenvolvimento`}</div>
-          </div>
-        </div>
-      </div>
-    )});
-
-    // Slide 5: Cronograma
-    if (displayCrono.length > 0) {
-      slides.push({ key: 'cronograma', render: () => (
-        <div className="sl-slide sl-timeline">
-          <div className="sl-tag">Cronograma</div>
-          <div className="sl-timeline-list">
-            {displayCrono.map((fase: any, i: number) => (
-              <div key={i} className="sl-tl-item">
-                <div className="sl-tl-num">{String(i + 1).padStart(2, '0')}</div>
-                <div className="sl-tl-content">
-                  <div className="sl-tl-name">{fase.fase}</div>
-                  <div className="sl-tl-weeks">{fase.semanas} sem.</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="sl-tl-total">{totalSemanas} semanas no total</div>
-        </div>
-      )});
-    }
-
-    // Slide 6: Investimento
-    slides.push({ key: 'investimento', render: () => (
-      <div className="sl-slide sl-invest">
-        <div className="sl-tag">Investimento</div>
-        <div className="sl-invest-price">{investTotal}</div>
-        <div className="sl-invest-label">Valor total do desenvolvimento</div>
-        <div className="sl-invest-items">
-          <div className="sl-invest-row">
-            <span>{p.total_horas}h de desenvolvimento</span>
-            <span>R$ 50,00/h</span>
-          </div>
-          <div className="sl-invest-row">
-            <span>Setup + deploy + infra</span>
-            <span>R$ 1.000,00</span>
-          </div>
-          {displayServicos.map((s: any, i: number) => (
-            <div key={i} className="sl-invest-row">
-              <span>{s.nome} (mensal)</span>
-              <span>{s.custo}</span>
-            </div>
-          ))}
-        </div>
-        <div className="sl-invest-seal">
-          <Check size={18} />
-          <span>Código-fonte 100% seu · Deploy incluído</span>
-        </div>
-      </div>
-    )});
-
-    // Slide 7: Aceite
-    slides.push({ key: 'aceite', render: () => (
-      <div className="sl-slide sl-aceite">
-        <div className="sl-tag">Sua resposta</div>
-        <h2 className="sl-aceite-title">O que você achou?</h2>
-        {respostaDefinitiva || respSucesso ? (
-          <div className="sl-aceite-done" style={{
-            borderColor: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'rgba(95,208,184,0.3)' :
-              (respostaDefinitiva?.status || respSucesso) === 'recusado' ? 'rgba(192,80,74,0.3)' : 'rgba(200,130,107,0.3)',
-          }}>
-            <CheckCircle size={40} style={{
-              color: (respostaDefinitiva?.status || respSucesso) === 'aceito' ? 'var(--teal)' :
-                (respostaDefinitiva?.status || respSucesso) === 'recusado' ? '#c0504a' : 'var(--bronze)',
-            }} />
-            <div className="sl-aceite-done-text">
-              {(respostaDefinitiva?.status || respSucesso) === 'aceito' && 'Proposta aceita!'}
-              {(respostaDefinitiva?.status || respSucesso) === 'recusado' && 'Proposta recusada'}
-              {(respostaDefinitiva?.status || respSucesso) === 'consideracoes' && 'Considerações enviadas!'}
-            </div>
-          </div>
-        ) : (
-          <div className="sl-aceite-form">
-            <div className="resp-tabs" style={{ marginBottom: '1rem' }}>
-              <button className={`resp-tab${respTab === 'aceitar' ? ' resp-tab--active resp-tab--aceitar' : ''}`} onClick={() => setRespTab('aceitar')}>Aceitar</button>
-              <button className={`resp-tab${respTab === 'consideracoes' ? ' resp-tab--active resp-tab--consideracoes' : ''}`} onClick={() => setRespTab('consideracoes')}>Considerações</button>
-              <button className={`resp-tab${respTab === 'recusar' ? ' resp-tab--active resp-tab--recusar' : ''}`} onClick={() => setRespTab('recusar')}>Recusar</button>
-            </div>
-            <input type="text" className="aceite-input" placeholder="Seu nome completo" value={respNome} onChange={e => setRespNome(e.target.value)} />
-            <input type="email" className="aceite-input" placeholder="Seu melhor email" value={respEmail} onChange={e => setRespEmail(e.target.value)} style={{ marginTop: '0.5rem' }} />
-            {(respTab === 'recusar' || respTab === 'consideracoes') && (
-              <textarea className="aceite-input aceite-textarea" placeholder={respTab === 'recusar' ? 'Motivo da recusa' : 'Suas considerações'} value={respMotivo} onChange={e => setRespMotivo(e.target.value)} rows={3} style={{ marginTop: '0.5rem' }} />
-            )}
-            {respErro && <div className="aceite-erro" style={{ marginTop: '0.5rem' }}>{respErro}</div>}
-            <button
-              className={`aceite-btn aceite-btn--${respTab === 'aceitar' ? 'aceitar' : respTab === 'recusar' ? 'recusar' : 'consideracoes'}`}
-              style={{ marginTop: '0.8rem', width: '100%' }}
-              onClick={() => handleResposta(respTab === 'aceitar' ? 'aceito' : respTab === 'recusar' ? 'recusado' : 'consideracoes')}
-              disabled={respLoading || !respNome.trim() || !respEmail.trim() || ((respTab === 'recusar' || respTab === 'consideracoes') && !respMotivo.trim())}
-            >
-              {respLoading ? 'Enviando...' : respTab === 'aceitar' ? 'Aceitar proposta' : respTab === 'recusar' ? 'Recusar proposta' : 'Enviar considerações'}
-            </button>
-          </div>
-        )}
-      </div>
-    )});
-
-    // Slide 8: CTA WhatsApp
-    slides.push({ key: 'cta', render: () => (
-      <div className="sl-slide sl-cta">
-        <div className="sl-cta-glow" />
-        <h2 className="sl-cta-title">Pronto para<br />começar?</h2>
-        <p className="sl-cta-text">{ctaTexto}</p>
-        <a href="https://wa.me/5543988569827?text=Ol%C3%A1%20Valmir%2C%20quero%20avan%C3%A7ar%20com%20a%20proposta!" className="sl-cta-btn" target="_blank" rel="noopener">
-          Falar com Valmir no WhatsApp →
-        </a>
-        <button className="sl-details-btn" onClick={() => setViewMode('details')}>
-          Ver proposta completa ↓
-        </button>
-      </div>
-    )});
-
-    return slides;
-  })();
-
-  const totalSlides = slidesData.length;
-
   // ─── Render ────────────────────────────────────────────────────────
 
   return (
     <>
       <style>{pageCSS}</style>
-      <style>{slidesCSS}</style>
       {temaOverride && <style>{temaOverride}</style>}
-
-      {viewMode === 'slides' ? (
-        <div className="sl-container">
-          <div className="sl-track" ref={slidesRef}>
-            {slidesData.map((s) => (
-              <div key={s.key} className="sl-snap">{s.render()}</div>
-            ))}
-          </div>
-          {/* Navigation */}
-          <div className="sl-nav">
-            <button className="sl-arrow sl-arrow-left" onClick={() => goToSlide(currentSlide - 1)} disabled={currentSlide === 0}><ChevronLeft size={20} /></button>
-            <div className="sl-dots">
-              {slidesData.map((_, i) => (
-                <button key={i} className={`sl-dot${i === currentSlide ? ' sl-dot--active' : ''}`} onClick={() => goToSlide(i)} />
-              ))}
-            </div>
-            <button className="sl-arrow sl-arrow-right" onClick={() => goToSlide(currentSlide + 1)} disabled={currentSlide === totalSlides - 1}><ChevronRight size={20} /></button>
-          </div>
-          <div className="sl-counter">{currentSlide + 1} / {totalSlides}</div>
-        </div>
-      ) : (
       <div className="prop-page">
         <nav className="prop-nav">
           <a href="/" className="nav-logo" style={{ textDecoration: 'none' }}>VV<span>eronez</span>.dev</a>
-          <div className="nav-tag-group">
-            <div className="nav-tag">Proposta Técnica</div>
-            <button className="nav-slides-btn" onClick={() => { setViewMode('slides'); setCurrentSlide(0); }}>Slides ←</button>
-          </div>
+          <div className="nav-tag">Proposta Técnica</div>
         </nav>
 
         {/* Hero always comes first */}
@@ -948,7 +664,6 @@ export default function PropostaPublicaPage() {
           <div className="footer-note">Proposta confidencial · © {new Date().getFullYear()}</div>
         </footer>
       </div>
-      )}
     </>
   );
 }
@@ -1237,111 +952,3 @@ const pageCSS = `
   .details-divider { padding:0 1.5rem; }
 }
 `;
-
-const slidesCSS = `
-/* ═══ SLIDES CONTAINER ═══ */
-.sl-container { position:fixed; inset:0; background:var(--bg, #0d0c14); z-index:200; overflow:hidden; }
-.sl-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; height:100vh; width:100vw; scrollbar-width:none; -ms-overflow-style:none; }
-.sl-track::-webkit-scrollbar { display:none; }
-.sl-snap { flex:0 0 100vw; scroll-snap-align:start; height:100vh; overflow-y:auto; }
-
-/* ═══ SLIDE BASE ═══ */
-.sl-slide { min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:3rem 2.5rem; max-width:640px; margin:0 auto; box-sizing:border-box; }
-.sl-tag { font-size:11px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze, #c8826b); margin-bottom:1.5rem; display:flex; align-items:center; gap:10px; }
-.sl-tag::before { content:''; width:20px; height:1px; background:var(--bronze, #c8826b); }
-
-/* ═══ SLIDE 1: HERO ═══ */
-.sl-hero { align-items:center; text-align:center; position:relative; overflow:hidden; }
-.sl-hero-glow { position:absolute; top:20%; left:50%; transform:translateX(-50%); width:500px; height:500px; background:radial-gradient(ellipse,rgba(200,130,107,0.1),transparent 65%); pointer-events:none; }
-.sl-hero-content { position:relative; z-index:1; }
-.sl-hero-eyebrow { font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted, #8a8494); margin-bottom:2rem; }
-.sl-hero-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(36px,8vw,56px); font-weight:400; color:var(--cream, #f0e6dc); line-height:1.1; margin:0 0 0.3rem; }
-.sl-hero-subtitle { font-family:'Cinzel',Georgia,serif; font-size:clamp(28px,6vw,44px); font-weight:300; font-style:italic; color:var(--bronze2, #e0a890); margin-bottom:2rem; }
-.sl-hero-media { max-width:280px; margin:0 auto 2rem; border-radius:16px; overflow:hidden; border:1px solid var(--border, rgba(255,255,255,0.09)); box-shadow:0 20px 60px rgba(0,0,0,0.4); }
-.sl-hero-media img, .sl-hero-media video { width:100%; height:auto; display:block; }
-.sl-hero-hint { display:flex; align-items:center; gap:6px; font-size:12px; letter-spacing:0.1em; color:var(--muted, #8a8494); animation:hintPulse 2s ease infinite; }
-@keyframes hintPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-/* ═══ SLIDE 2: ENTENDIMENTO ═══ */
-.sl-understand-type { font-family:'Cinzel',Georgia,serif; font-size:clamp(20px,4vw,28px); font-weight:500; color:var(--cream, #f0e6dc); line-height:1.3; margin-bottom:1.5rem; }
-.sl-understand-text { font-size:16px; line-height:1.8; color:var(--text, #ddd8d2); font-weight:300; margin-bottom:2rem; }
-.sl-understand-divider { width:40px; height:1px; background:var(--bronze, #c8826b); margin:0 0 2rem; }
-.sl-understand-label { font-size:11px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--bronze, #c8826b); margin-bottom:0.8rem; }
-.sl-understand-oneliner { font-family:'Cinzel',Georgia,serif; font-size:clamp(18px,3vw,22px); font-weight:500; color:var(--cream, #f0e6dc); line-height:1.4; }
-
-/* ═══ SLIDE 3: O QUE RECEBE ═══ */
-.sl-receives-list { display:grid; gap:0.5rem; margin-bottom:2rem; }
-.sl-receives-item { display:flex; align-items:flex-start; gap:0.75rem; padding:0.8rem 1rem; background:var(--bg2, #161424); border:1px solid var(--border, rgba(255,255,255,0.09)); border-radius:10px; font-size:15px; line-height:1.6; color:var(--text, #ddd8d2); }
-.sl-receives-check { color:var(--teal, #5fd0b8); flex-shrink:0; margin-top:2px; }
-.sl-excludes { margin-top:1rem; }
-.sl-excludes-label { font-size:12px; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted, #8a8494); margin-bottom:0.6rem; }
-.sl-excludes-item { display:flex; align-items:center; gap:0.5rem; font-size:13px; color:var(--muted, #8a8494); padding:0.3rem 0; }
-
-/* ═══ SLIDE 4: NÚMEROS ═══ */
-.sl-numbers { align-items:center; text-align:center; }
-.sl-numbers-grid { display:grid; gap:1rem; width:100%; }
-.sl-num-card { padding:1.5rem; background:var(--bg2, #161424); border:1px solid var(--border, rgba(255,255,255,0.09)); border-radius:14px; }
-.sl-num-icon { color:var(--bronze, #c8826b); margin-bottom:0.6rem; opacity:0.7; }
-.sl-num-label { font-size:11px; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted, #8a8494); margin-bottom:0.5rem; }
-.sl-num-value { font-family:'Cinzel',Georgia,serif; font-size:clamp(24px,5vw,34px); font-weight:600; color:var(--cream, #f0e6dc); line-height:1.1; margin-bottom:0.3rem; }
-.sl-num-detail { font-size:13px; color:var(--muted, #8a8494); }
-
-/* ═══ SLIDE 5: CRONOGRAMA ═══ */
-.sl-timeline-list { display:grid; gap:0.6rem; margin-bottom:1.5rem; }
-.sl-tl-item { display:flex; align-items:center; gap:1rem; padding:1rem 1.2rem; background:var(--bg2, #161424); border:1px solid var(--border, rgba(255,255,255,0.09)); border-radius:12px; }
-.sl-tl-num { font-family:'Cinzel',Georgia,serif; font-size:18px; font-weight:700; color:var(--bronze, #c8826b); width:32px; flex-shrink:0; text-align:center; }
-.sl-tl-content { flex:1; display:flex; justify-content:space-between; align-items:center; }
-.sl-tl-name { font-size:15px; font-weight:500; color:var(--cream, #f0e6dc); }
-.sl-tl-weeks { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--bronze2, #e0a890); padding:4px 10px; background:rgba(200,130,107,0.08); border-radius:8px; flex-shrink:0; }
-.sl-tl-total { text-align:center; font-size:14px; color:var(--muted, #8a8494); }
-
-/* ═══ SLIDE 6: INVESTIMENTO ═══ */
-.sl-invest { align-items:center; text-align:center; }
-.sl-invest-price { font-family:'Cinzel',Georgia,serif; font-size:clamp(36px,8vw,52px); font-weight:700; color:var(--cream, #f0e6dc); letter-spacing:-1px; line-height:1; margin-bottom:0.4rem; }
-.sl-invest-label { font-size:13px; color:var(--muted, #8a8494); margin-bottom:2rem; }
-.sl-invest-items { width:100%; display:grid; gap:1px; background:var(--border, rgba(255,255,255,0.09)); border:1px solid var(--border, rgba(255,255,255,0.09)); border-radius:12px; overflow:hidden; margin-bottom:1.5rem; }
-.sl-invest-row { display:flex; justify-content:space-between; padding:0.8rem 1rem; background:var(--bg2, #161424); font-size:13px; }
-.sl-invest-row span:first-child { color:var(--muted, #8a8494); }
-.sl-invest-row span:last-child { font-family:'JetBrains Mono',monospace; color:var(--cream, #f0e6dc); font-weight:500; }
-.sl-invest-seal { display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.8rem 1.2rem; background:rgba(95,208,184,0.05); border:1px solid rgba(95,208,184,0.15); border-radius:10px; font-size:13px; color:var(--teal, #5fd0b8); }
-
-/* ═══ SLIDE 7: ACEITE ═══ */
-.sl-aceite { align-items:center; }
-.sl-aceite-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(24px,5vw,32px); font-weight:500; color:var(--cream, #f0e6dc); text-align:center; margin-bottom:1.5rem; }
-.sl-aceite-form { width:100%; max-width:400px; }
-.sl-aceite-done { display:flex; flex-direction:column; align-items:center; padding:2rem; border:1px solid; border-radius:14px; background:var(--bg2, #161424); gap:0.8rem; }
-.sl-aceite-done-text { font-family:'Cinzel',Georgia,serif; font-size:20px; font-weight:500; color:var(--cream, #f0e6dc); }
-
-/* ═══ SLIDE 8: CTA ═══ */
-.sl-cta { align-items:center; text-align:center; position:relative; }
-.sl-cta-glow { position:absolute; top:30%; left:50%; transform:translateX(-50%); width:400px; height:400px; background:radial-gradient(ellipse,rgba(200,130,107,0.08),transparent 65%); pointer-events:none; }
-.sl-cta-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(28px,6vw,40px); font-weight:500; color:var(--cream, #f0e6dc); line-height:1.2; margin-bottom:1rem; position:relative; }
-.sl-cta-text { font-size:16px; color:var(--muted, #8a8494); line-height:1.7; margin-bottom:2rem; max-width:400px; position:relative; }
-.sl-cta-btn { display:inline-flex; padding:16px 36px; background:var(--bronze, #c8826b); color:var(--bg, #0d0c14); font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; text-decoration:none; border-radius:12px; transition:all 0.3s; position:relative; box-shadow:0 0 30px rgba(200,130,107,0.2); }
-.sl-cta-btn:hover { background:var(--bronze2, #e0a890); transform:translateY(-2px); }
-.sl-details-btn { margin-top:1.5rem; background:none; border:1px solid var(--border, rgba(255,255,255,0.09)); color:var(--muted, #8a8494); padding:10px 24px; font-size:13px; cursor:pointer; border-radius:8px; transition:all 0.2s; position:relative; }
-.sl-details-btn:hover { border-color:var(--bronze, #c8826b); color:var(--bronze, #c8826b); }
-
-/* ═══ NAVIGATION ═══ */
-.sl-nav { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:1rem; z-index:210; background:rgba(13,12,20,0.85); backdrop-filter:blur(12px); padding:0.6rem 1rem; border-radius:100px; border:1px solid var(--border, rgba(255,255,255,0.09)); }
-.sl-dots { display:flex; gap:6px; }
-.sl-dot { width:8px; height:8px; border-radius:50%; border:none; background:rgba(255,255,255,0.15); cursor:pointer; padding:0; transition:all 0.3s; }
-.sl-dot--active { background:var(--bronze, #c8826b); width:24px; border-radius:4px; }
-.sl-arrow { background:none; border:none; color:var(--muted, #8a8494); cursor:pointer; padding:4px; display:flex; align-items:center; transition:color 0.2s; }
-.sl-arrow:hover:not(:disabled) { color:var(--cream, #f0e6dc); }
-.sl-arrow:disabled { opacity:0.2; cursor:default; }
-.sl-counter { position:fixed; top:1.5rem; right:1.5rem; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted, #8a8494); z-index:210; letter-spacing:0.1em; }
-
-/* Nav detail button */
-.nav-tag-group { display:flex; align-items:center; gap:0.6rem; }
-.nav-slides-btn { font-size:11px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--bronze, #c8826b); background:none; border:1px solid rgba(200,130,107,0.3); padding:5px 12px; border-radius:100px; cursor:pointer; transition:all 0.2s; }
-.nav-slides-btn:hover { background:rgba(200,130,107,0.1); }
-
-/* ═══ MOBILE ═══ */
-@media (max-width: 640px) {
-  .sl-slide { padding:2rem 1.5rem; }
-  .sl-nav { bottom:1rem; padding:0.5rem 0.8rem; }
-  .sl-numbers-grid { gap:0.8rem; }
-}
-`;
-
