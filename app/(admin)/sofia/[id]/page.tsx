@@ -432,7 +432,7 @@ export default function LeadDetailPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            onClick={() => exportFichaPDF(lead, ficha, frasesOuro)}
+            onClick={() => { const { doc, fileName } = exportFichaPDF(lead, ficha, frasesOuro); doc.save(fileName); }}
             style={{
               background: 'none', border: '1px solid rgba(212,160,74,0.3)', color: 'var(--gold-300)', cursor: 'pointer',
               padding: '0.4rem 0.8rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -1020,7 +1020,7 @@ export default function LeadDetailPage() {
                     <FileText size={16} /> Gerador de Proposta
                   </a>
                   <button
-                    onClick={() => exportPropostaPDF(lead, p, modulos, servicos)}
+                    onClick={() => { const { doc, fileName } = exportPropostaPDF(lead, p, modulos, servicos); doc.save(fileName); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       padding: '0.7rem 1.8rem',
@@ -1096,7 +1096,7 @@ export default function LeadDetailPage() {
                         <Pencil size={12} /> Editar
                       </a>
                       <button
-                        onClick={() => exportPublicadaPDF(lead!, cp)}
+                        onClick={() => { const { doc, fileName } = exportPublicadaPDF(lead!, cp); doc.save(fileName); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '0.3rem',
                           padding: '0.35rem 0.7rem', fontSize: '0.68rem',

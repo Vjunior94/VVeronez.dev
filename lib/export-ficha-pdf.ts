@@ -181,7 +181,7 @@ export function exportFichaPDF(
   h.drawFooter('VVeronez.Dev - Ficha gerada automaticamente');
 
   const fileName = `Ficha - ${clientName.replace(/[^a-zA-ZÀ-ú0-9 ]/g, '')}.pdf`;
-  doc.save(fileName);
+  return { doc, fileName };
 }
 
 function calcCardHeight(doc: jsPDF, field: FichaCampo, width: number): number {

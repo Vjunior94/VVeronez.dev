@@ -409,5 +409,5 @@ export function exportPropostaPDF(
   h.drawFooter('VVeronez.Dev - Proposta gerada automaticamente');
 
   const fileName = `Proposta - ${clientName.replace(/[^a-zA-ZÀ-ú0-9 ]/g, '')}.pdf`;
-  doc.save(fileName);
+  return { doc, fileName };
 }

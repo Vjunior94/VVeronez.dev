@@ -488,5 +488,5 @@ export function exportPublicadaPDF(lead: Lead, cp: ConteudoPagina) {
   h.drawFooter('VVeronez.Dev - Proposta publicada');
 
   const fileName = `Proposta - ${clientName.replace(/[^a-zA-ZÀ-ú0-9 ]/g, '')}.pdf`;
-  doc.save(fileName);
+  return { doc, fileName };
 }
