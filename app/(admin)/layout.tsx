@@ -3,16 +3,14 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LayoutDashboard, MessageSquare, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight, Globe, Columns3, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, LogOut, Menu, ChevronsLeft, ChevronsRight, BarChart3 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/sofia', label: 'Sofia', icon: MessageSquare },
-  { href: '/agenor', label: 'Agenor', icon: FileText },
-  { href: '/propostas', label: 'Propostas Publicadas', icon: Globe },
-  { href: '/pipeline', label: 'Pipeline', icon: Columns3 },
+  { href: '/leads', label: 'Leads', icon: Users },
+  { href: '/propostas', label: 'Propostas', icon: FileText },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/settings', label: 'Configurações', icon: Settings },
+  { href: '/settings', label: 'Configuracoes', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
