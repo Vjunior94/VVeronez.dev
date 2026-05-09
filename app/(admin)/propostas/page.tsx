@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useCachedFetch } from '@/lib/use-cached-fetch';
 import { formatBRL } from '@/lib/format';
@@ -34,11 +35,11 @@ interface AgenorProposal {
 type FilterKey = 'todas' | 'publicadas' | 'rascunho' | 'aceitas' | 'manuais';
 
 export default function PropostasPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<FilterKey>('todas');
   const [search, setSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ client_name: '', briefing: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -113,15 +114,8 @@ export default function PropostasPage() {
     setDeletingId(null);
   };
 
-  const handleQuickPublish = async (id: string) => {
-    const senha = prompt('Defina a senha de acesso para o cliente:');
-    if (!senha) return;
-    setPublishingId(id);
-    const supabase = createClient();
-    await supabase.from('propostas').update({ senha_acesso: senha }).eq('id', id);
-    setLocalPropostas(prev => (prev ?? propostas).map(p => p.id === id ? { ...p, senha_acesso: senha } : p));
-    setPublishingId(null);
-    handleCopy(id);
+  const handleQuickPublish = (id: string) => {
+    router.push(`/propostas/editor/${id}`);
   };
 
   const handleDeleteProposta = async (id: string) => {
@@ -344,13 +338,13 @@ export default function PropostasPage() {
                         )}
                         {!p.senha_acesso && (
                           <>
-                            <button onClick={() => handleQuickPublish(p.id)} disabled={publishingId === p.id} style={{
+                            <button onClick={() => handleQuickPublish(p.id)} style={{
                               display: 'flex', alignItems: 'center', gap: '0.3rem',
                               background: 'rgba(95,208,184,0.1)', border: '1px solid rgba(95,208,184,0.25)',
                               color: '#5fd0b8', padding: '0.35rem 0.7rem', fontSize: '0.68rem',
                               cursor: 'pointer', fontFamily: "var(--font-jetbrains)",
                             }}>
-                              <Globe size={12} /> {publishingId === p.id ? '...' : copiedId === p.id ? 'Copiado!' : 'Publicar'}
+                              <Pencil size={12} /> Revisar & Publicar
                             </button>
                             <a href={`/leads/${p.lead_id}`} style={{
                               display: 'flex', alignItems: 'center', gap: '0.3rem',
