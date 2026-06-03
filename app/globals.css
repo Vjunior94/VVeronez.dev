@@ -76,6 +76,12 @@ body:has(.admin-layout)::before {
 body:has(.login-page)::before {
   display: none;
 }
+body:has(.il-page)::before {
+  display: none;
+}
+body:has(.il-page) {
+  background: #FFFFFF;
+}
 
 /* ============ NAV (landing only) ============ */
 nav.landing-nav {
