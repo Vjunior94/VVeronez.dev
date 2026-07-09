@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/api-auth';
 
 function getSupabase() {
   return createClient(
@@ -10,6 +11,9 @@ function getSupabase() {
 }
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('configuracoes')
@@ -33,6 +37,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
   const supabase = getSupabase();
   const body = await req.json() as Record<string, any>;
 

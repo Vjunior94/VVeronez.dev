@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ArrowLeft, Save, Globe, Copy, Send, Loader2, Image, X, Trash2, PanelLeftClose, PanelLeftOpen, DollarSign, Clock, LayoutGrid, Check, Minus, Paperclip } from 'lucide-react';
+import { ArrowLeft, Save, Globe, Copy, Loader2, Image, X, DollarSign, Clock, LayoutGrid, Check, Minus } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -56,34 +56,6 @@ interface ConteudoPagina {
   validade_dias: number;
   resumo_executivo?: ResumoExecutivo;
   tema?: Tema;
-}
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-// ─── Persistence helpers ─────────────────────────────────────────────
-
-function loadChatLocal(id: string): Message[] {
-  try { return JSON.parse(localStorage.getItem(`agenor-editor:${id}`) || '[]'); } catch { return []; }
-}
-function saveChatLocal(id: string, msgs: Message[]) {
-  try { localStorage.setItem(`agenor-editor:${id}`, JSON.stringify(msgs)); } catch {}
-}
-
-let dbTimer: ReturnType<typeof setTimeout> | null = null;
-function saveChatDB(id: string, msgs: Message[]) {
-  if (dbTimer) clearTimeout(dbTimer);
-  dbTimer = setTimeout(async () => {
-    const supabase = createClient();
-    await supabase.from('propostas').update({ agenor_chat: msgs }).eq('id', id);
-  }, 2000);
-}
-
-function persistChat(id: string, msgs: Message[]) {
-  saveChatLocal(id, msgs);
-  saveChatDB(id, msgs);
 }
 
 // ─── Preview helpers (from public page) ──────────────────────────────
@@ -144,46 +116,6 @@ function renderMd(text: string) {
   });
 }
 
-// ─── Chat markdown renderer ─────────────────────────────────────────
-
-function renderUserMsg(text: string) {
-  const imgMatch = text.match(/\bhttps?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg|mp4)\b/i) ||
-                   text.match(/\bhttps?:\/\/\S+\/storage\/v1\/object\/public\/\S+/i);
-  const cleanText = text
-    .replace(/\[(?:imagem|video|gif) enviada: [^\]]+\]/gi, '')
-    .replace(/Use esta (?:imagem|video|gif) na proposta: \S+/gi, '')
-    .trim();
-  return (
-    <>
-      {cleanText && <p style={{ marginBottom: imgMatch ? '0.5rem' : 0 }}>{cleanText}</p>}
-      {imgMatch && (
-        <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-subtle)', maxWidth: '200px' }}>
-          {imgMatch[0].match(/\.mp4$/i) ? (
-            <video src={imgMatch[0]} style={{ width: '100%', display: 'block' }} autoPlay muted loop playsInline />
-          ) : (
-            <img src={imgMatch[0]} alt="Enviado" style={{ width: '100%', display: 'block' }} />
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-function renderChat(text: string) {
-  // Hide JSON blocks from display
-  const cleaned = text.replace(/```json:proposta_editada[\s\S]*?```/g, '').trim();
-  if (!cleaned) return [<p key={0} style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>JSON atualizado com sucesso.</p>];
-  return cleaned.split('\n').map((line, i) => {
-    let rendered = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    rendered = rendered.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;font-size:0.82em">$1</code>');
-    if (line.startsWith('# ')) return <h3 key={i} style={{ fontSize: '1rem', color: 'var(--gold-100)', fontFamily: "var(--font-cinzel)", margin: '0.6rem 0 0.2rem' }} dangerouslySetInnerHTML={{ __html: rendered.slice(2) }} />;
-    if (line.startsWith('## ')) return <h4 key={i} style={{ fontSize: '0.9rem', color: 'var(--gold-100)', margin: '0.4rem 0 0.2rem' }} dangerouslySetInnerHTML={{ __html: rendered.slice(3) }} />;
-    if (line.match(/^- /)) return <div key={i} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.1rem' }}><span style={{ color: 'var(--gold-500)' }}>◆</span><span dangerouslySetInnerHTML={{ __html: rendered.slice(2) }} /></div>;
-    if (line.trim() === '') return <br key={i} />;
-    return <p key={i} style={{ marginBottom: '0.1rem' }} dangerouslySetInnerHTML={{ __html: rendered }} />;
-  });
-}
-
 // ─── Main Page ───────────────────────────────────────────────────────
 
 function formatBRL(centavos: number) {
@@ -203,24 +135,9 @@ export default function PropostaEditorPage() {
   const [saved, setSaved] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
-  // Chat state
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
-  const chatRef = useRef<HTMLDivElement>(null);
-  const messagesRef = useRef<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatFileRef = useRef<HTMLInputElement>(null);
   const entregaImgRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
-
-  // Sync ref + persist
-  useEffect(() => {
-    messagesRef.current = messages;
-    if (messages.length > 0) persistChat(propostaId, messages);
-  }, [messages, propostaId]);
 
   // Load data
   useEffect(() => {
@@ -236,14 +153,6 @@ export default function PropostaEditorPage() {
 
       const nome = (proposta.leads as any)?.nome_cliente || 'Cliente';
       setClienteNome(nome);
-
-      // Load chat from localStorage, fallback to Supabase
-      let chat = loadChatLocal(propostaId);
-      if (chat.length === 0 && proposta.agenor_chat && Array.isArray(proposta.agenor_chat)) {
-        chat = proposta.agenor_chat;
-        saveChatLocal(propostaId, chat);
-      }
-      setMessages(chat);
 
       if (proposta.conteudo_pagina) {
         setConteudo(proposta.conteudo_pagina);
@@ -287,11 +196,6 @@ export default function PropostaEditorPage() {
     load();
   }, [propostaId]);
 
-  // Auto-scroll chat
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages]);
-
   // ─── Save / Publish ────────────────────────────────────────────────
 
   const handleSave = async () => {
@@ -334,133 +238,6 @@ export default function PropostaEditorPage() {
     setConteudo(prev => prev ? { ...prev, hero_media_url: url, hero_media_type: mediaType } : prev);
   };
 
-  // ─── Chat + Streaming ─────────────────────────────────────────────
-
-  const streamEdit = useCallback(async (msgs: Message[]) => {
-    if (!conteudo) return;
-    setStreaming(true);
-
-    const withPlaceholder = [...msgs, { role: 'assistant' as const, content: '' }];
-    setMessages(withPlaceholder);
-
-    try {
-      const res = await fetch('/api/agenor/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: msgs, conteudoPagina: conteudo }),
-      });
-
-      if (!res.ok) {
-        const errMsgs = [...msgs, { role: 'assistant' as const, content: 'Erro ao conectar com o Agenor. Tente novamente.' }];
-        setMessages(errMsgs);
-        persistChat(propostaId, errMsgs);
-        setStreaming(false);
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) { setStreaming(false); return; }
-
-      let fullText = '';
-      let buffer = '';
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            try {
-              const { text } = JSON.parse(data);
-              fullText += text;
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { role: 'assistant', content: fullText };
-                return updated;
-              });
-            } catch {}
-          }
-        }
-      }
-
-      const finalMsgs = [...msgs, { role: 'assistant' as const, content: fullText }];
-      setMessages(finalMsgs);
-      persistChat(propostaId, finalMsgs);
-
-      // Parse JSON from response and update preview
-      const jsonMatch = fullText.match(/```json:proposta_editada\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1].trim());
-          setConteudo(parsed);
-          // Auto-save to Supabase
-          const supabase = createClient();
-          await supabase.from('propostas').update({ conteudo_pagina: parsed }).eq('id', propostaId);
-          setSaved(true);
-          setTimeout(() => setSaved(false), 3000);
-        } catch (e) { console.error('Parse error:', e); }
-      }
-    } catch (e) {
-      console.error('Stream error:', e);
-      const current = messagesRef.current;
-      if (current.length > 0 && current[current.length - 1].role === 'assistant' && !current[current.length - 1].content) {
-        const fixed = [...current.slice(0, -1), { role: 'assistant' as const, content: 'Conexao perdida. Envie novamente.' }];
-        setMessages(fixed);
-        persistChat(propostaId, fixed);
-      }
-    } finally {
-      setStreaming(false);
-    }
-  }, [conteudo, propostaId]);
-
-  const handleSend = () => {
-    if (!input.trim() || streaming) return;
-    const newMsg: Message = { role: 'user', content: input.trim() };
-    const allMsgs = [...messages, newMsg];
-    setMessages(allMsgs);
-    persistChat(propostaId, allMsgs);
-    setInput('');
-    streamEdit(allMsgs);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
-
-  const handleChatImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || streaming) return;
-    setUploading(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const ts = Date.now();
-      const url = await uploadFile(file, `propostas/${propostaId}/chat-${ts}.${ext}`);
-      if (!url) { setUploading(false); return; }
-      const mediaType = file.type.startsWith('video') ? 'video' : file.type === 'image/gif' ? 'gif' : 'imagem';
-      const instruction = input.trim()
-        ? `${input.trim()}\n\n[${mediaType} enviada: ${url}]`
-        : `Use esta ${mediaType} na proposta: ${url}`;
-      const newMsg: Message = { role: 'user', content: instruction };
-      const allMsgs = [...messages, newMsg];
-      setMessages(allMsgs);
-      persistChat(propostaId, allMsgs);
-      setInput('');
-      streamEdit(allMsgs);
-    } catch (err) {
-      console.error('Upload error:', err);
-    } finally {
-      setUploading(false);
-      if (chatFileRef.current) chatFileRef.current.value = '';
-    }
-  };
-
   const handleEntregaImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !conteudo?.resumo_executivo) return;
@@ -479,12 +256,6 @@ export default function PropostaEditorPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
     if (entregaImgRef.current) entregaImgRef.current.value = '';
-  };
-
-  const handleClearChat = () => {
-    if (!confirm('Limpar conversa? O conteudo da proposta sera mantido.')) return;
-    localStorage.removeItem(`agenor-editor:${propostaId}`);
-    setMessages([]);
   };
 
   // ─── Loading / Error ───────────────────────────────────────────────
@@ -541,14 +312,17 @@ export default function PropostaEditorPage() {
         </button>
         <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleImageUpload} style={{ display: 'none' }} />
 
-        {/* Toggle chat */}
-        <button onClick={() => setChatCollapsed(!chatCollapsed)} style={{
-          display: 'flex', alignItems: 'center', background: 'none',
-          border: '1px solid var(--border-subtle)', color: 'var(--gold-300)',
-          padding: '0.4rem', cursor: 'pointer',
-        }} title={chatCollapsed ? 'Abrir chat' : 'Fechar chat'}>
-          {chatCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
+        {/* Senha do cliente (publicar) */}
+        <input
+          value={conteudo.senha_acesso}
+          onChange={e => setConteudo(prev => prev ? { ...prev, senha_acesso: e.target.value } : prev)}
+          placeholder="Senha do cliente"
+          style={{
+            width: '140px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)',
+            color: 'var(--gold-100)', padding: '0.4rem 0.6rem', fontSize: '0.68rem',
+            fontFamily: "var(--font-jetbrains)", outline: 'none',
+          }}
+        />
 
         {/* Save */}
         <button onClick={handleSave} disabled={saving} style={{
@@ -587,144 +361,10 @@ export default function PropostaEditorPage() {
         )}
       </div>
 
-      {/* ═══ MAIN SPLIT ═══ */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: chatCollapsed ? '1fr' : '380px 1fr',
-        gap: '0.8rem',
-        flex: 1,
-        minHeight: 0,
-      }}>
-
-        {/* ═══ LEFT: CHAT ═══ */}
-        {!chatCollapsed && (
-          <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {/* Chat header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0.5rem 0.8rem', background: 'rgba(10,8,20,0.6)', border: '1px solid var(--border-subtle)',
-              borderBottom: 'none', fontSize: '0.7rem',
-            }}>
-              <span style={{ color: 'var(--gold-300)', fontFamily: "var(--font-jetbrains)", letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                Agenor · Editor
-              </span>
-              {messages.length > 0 && (
-                <button onClick={handleClearChat} title="Limpar conversa" style={{
-                  display: 'flex', alignItems: 'center', background: 'none',
-                  border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem',
-                }}>
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </div>
-
-            {/* Chat messages */}
-            <div ref={chatRef} style={{
-              flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem',
-              padding: '0.8rem', background: 'rgba(10,8,20,0.4)', border: '1px solid var(--border-subtle)',
-              borderBottom: 'none',
-            }}>
-              {messages.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-dim)' }}>
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem', opacity: 0.3 }}>◆</div>
-                  <div style={{ fontSize: '0.82rem', lineHeight: 1.6 }}>
-                    Diga ao Agenor o que quer mudar.<br />
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
-                      Ex: &ldquo;mude o titulo&rdquo;, &ldquo;adicione um modulo de chat&rdquo;, &ldquo;troque a stack&rdquo;
-                    </span>
-                  </div>
-                </div>
-              )}
-              {messages.map((msg, i) => (
-                <div key={i} style={{
-                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: msg.role === 'user' ? '85%' : '95%',
-                  padding: '0.6rem 0.8rem',
-                  background: msg.role === 'user' ? 'rgba(184, 130, 107, 0.12)' : 'rgba(20, 16, 30, 0.8)',
-                  border: msg.role !== 'user' ? '1px solid var(--border-subtle)' : 'none',
-                  borderRadius: '6px', fontSize: '0.82rem', lineHeight: 1.55, color: 'var(--text-primary)',
-                }}>
-                  <div style={{
-                    fontSize: '0.55rem', color: msg.role === 'user' ? 'var(--gold-300)' : 'var(--text-dim)',
-                    marginBottom: '0.2rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
-                  }}>
-                    {msg.role === 'user' ? 'Valmir' : 'Agenor'}
-                  </div>
-                  <div>{msg.role === 'user' ? renderUserMsg(msg.content) : renderChat(msg.content)}</div>
-                </div>
-              ))}
-              {streaming && messages.length > 0 && messages[messages.length - 1].content === '' && (
-                <div style={{ color: 'var(--text-dim)', fontSize: '0.78rem', padding: '0.3rem' }}>
-                  <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', display: 'inline' }} /> Agenor esta editando...
-                </div>
-              )}
-            </div>
-
-            {/* Chat input */}
-            <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-              <button onClick={() => chatFileRef.current?.click()} disabled={streaming || uploading} title="Enviar imagem" style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '36px', background: uploading ? 'rgba(212,160,74,0.25)' : 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border-subtle)', color: uploading ? 'var(--gold-100)' : 'var(--text-dim)',
-                cursor: streaming || uploading ? 'wait' : 'pointer', flexShrink: 0,
-              }}>
-                {uploading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Paperclip size={14} />}
-              </button>
-              <input ref={chatFileRef} type="file" accept="image/*,video/*,.gif" onChange={handleChatImageUpload} style={{ display: 'none' }} />
-              <textarea
-                value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                placeholder="Ex: mude o titulo para..."
-                rows={2}
-                style={{
-                  flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--gold-100)', padding: '0.6rem 0.8rem', fontSize: '0.82rem',
-                  fontFamily: 'inherit', outline: 'none', resize: 'none', lineHeight: 1.4,
-                }}
-              />
-              <button onClick={handleSend} disabled={streaming || !input.trim()} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '42px', background: 'rgba(212,160,74,0.15)',
-                border: '1px solid rgba(212,160,74,0.3)', color: 'var(--gold-100)',
-                cursor: streaming ? 'wait' : 'pointer', flexShrink: 0,
-              }}>
-                <Send size={16} />
-              </button>
-            </div>
-
-            {/* Publish bar */}
-            <div style={{
-              marginTop: '0.5rem', padding: '0.6rem 0.8rem',
-              background: 'rgba(95,208,184,0.04)', border: '1px solid rgba(95,208,184,0.15)',
-              display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.72rem',
-            }}>
-              <input
-                value={conteudo.senha_acesso}
-                onChange={e => setConteudo(prev => prev ? { ...prev, senha_acesso: e.target.value } : prev)}
-                placeholder="Senha do cliente"
-                style={{
-                  flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--gold-100)', padding: '0.35rem 0.6rem', fontSize: '0.72rem',
-                  fontFamily: "var(--font-jetbrains)", outline: 'none',
-                }}
-              />
-              <button onClick={handleSave} disabled={saving || !conteudo.senha_acesso} style={{
-                padding: '0.35rem 0.8rem',
-                background: conteudo.senha_acesso ? 'rgba(95,208,184,0.15)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${conteudo.senha_acesso ? 'rgba(95,208,184,0.3)' : 'var(--border-subtle)'}`,
-                color: conteudo.senha_acesso ? '#5fd0b8' : 'var(--text-dim)',
-                fontSize: '0.68rem', fontFamily: "var(--font-jetbrains)",
-                letterSpacing: '0.08em', textTransform: 'uppercase', cursor: conteudo.senha_acesso ? 'pointer' : 'default',
-              }}>
-                <Globe size={11} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
-                Publicar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ═══ RIGHT: PREVIEW ═══ */}
+      {/* ═══ PREVIEW ═══ */}
+      <div style={{ flex: 1, minHeight: 0 }}>
         <div ref={previewRef} style={{
-          overflowY: 'auto', background: '#09080f', border: '1px solid var(--border-subtle)',
+          overflowY: 'auto', height: '100%', background: '#09080f', border: '1px solid var(--border-subtle)',
           position: 'relative',
         }}>
           <style>{previewCSS}</style>

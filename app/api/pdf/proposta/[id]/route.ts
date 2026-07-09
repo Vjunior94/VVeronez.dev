@@ -30,8 +30,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const lead = proposta.leads as { id: string; whatsapp_numero: string; nome_cliente: string | null; created_at: string };
 
   const [modulosRes, servicosRes] = await Promise.all([
-    supabase.from('modulos').select('*').eq('proposta_id', id).order('ordem'),
-    supabase.from('servicos').select('*').eq('proposta_id', id),
+    supabase.from('proposta_modulos').select('*').eq('proposta_id', id).order('ordem'),
+    supabase.from('proposta_servicos').select('*').eq('proposta_id', id),
   ]);
 
   const { doc, fileName } = exportPropostaPDF(lead, proposta, modulosRes.data || [], servicosRes.data || []);

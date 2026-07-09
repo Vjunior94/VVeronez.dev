@@ -73,9 +73,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (status === 'aceito') {
       await supabase.from('notificacoes_valmir').insert({
         lead_id: leadId,
-        tipo: 'aceite_proposta',
-        titulo: `Proposta ACEITA por ${clienteNome}!`,
-        mensagem: `${clienteNome} (${email.trim()}) aceitou a proposta e está pronto para alinhar detalhes e gerar contrato.`,
+        canal: 'whatsapp',
+        conteudo: `✅ Proposta ACEITA por ${clienteNome}!\n\n${clienteNome} (${email.trim()}) aceitou a proposta e está pronto para alinhar detalhes e gerar contrato.`,
       });
     } else if (status === 'recusado') {
       // Salvar motivo na ficha do cliente
@@ -90,16 +89,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
       await supabase.from('notificacoes_valmir').insert({
         lead_id: leadId,
-        tipo: 'recusa_proposta',
-        titulo: `Proposta RECUSADA por ${clienteNome}`,
-        mensagem: `${clienteNome} (${email.trim()}) recusou a proposta.\n\nMotivo: ${motivo.trim()}`,
+        canal: 'whatsapp',
+        conteudo: `❌ Proposta RECUSADA por ${clienteNome}\n\n${clienteNome} (${email.trim()}) recusou a proposta.\n\nMotivo: ${motivo.trim()}`,
       });
     } else if (status === 'consideracoes') {
       await supabase.from('notificacoes_valmir').insert({
         lead_id: leadId,
-        tipo: 'consideracoes_proposta',
-        titulo: `Considerações de ${clienteNome}`,
-        mensagem: `${clienteNome} (${email.trim()}) adicionou considerações à proposta:\n\n"${motivo?.trim() || '(sem texto)'}"`,
+        canal: 'whatsapp',
+        conteudo: `💬 Considerações de ${clienteNome}\n\n${clienteNome} (${email.trim()}) adicionou considerações à proposta:\n\n"${motivo?.trim() || '(sem texto)'}"`,
       });
       // Salvar considerações na ficha
       if (leadId && motivo?.trim()) {

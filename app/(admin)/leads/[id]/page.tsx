@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, FileText, MessageSquare, ClipboardList, Flame, Sun, Snowflake, Trash2,
   Briefcase, Target, TrendingUp, Users, Calendar, Wallet, GitBranch, User, StickyNote,
-  AlertTriangle, Thermometer, Lightbulb, Send, Loader2, Pencil, Check, X, RotateCcw,
+  AlertTriangle, Thermometer, Lightbulb, Pencil, Check, X,
   Globe, Link2, Copy, Quote, Phone, Clock, Hourglass, Zap, Download,
 } from 'lucide-react';
 import { exportFichaPDF } from '@/lib/export-ficha-pdf';
@@ -123,8 +123,6 @@ interface Servico {
   obrigatorio: boolean;
 }
 
-const SOFIA_BACKEND = 'https://sofia-secretaria-production.up.railway.app';
-
 interface Modulo {
   id: string;
   nome: string;
@@ -223,7 +221,6 @@ export default function LeadDetailPage() {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [tab, setTab] = useState<'ficha' | 'conversa' | 'proposta' | 'publicadas'>('ficha');
   const [loading, setLoading] = useState(true);
-  const [gerando, setGerando] = useState(false);
   const [editingProposta, setEditingProposta] = useState(false);
   const [editForm, setEditForm] = useState({ custo_total_centavos: 0, total_horas: 0, observacoes: '' });
   const [editingModulo, setEditingModulo] = useState<string | null>(null);
@@ -272,36 +269,6 @@ export default function LeadDetailPage() {
     router.push('/leads');
   };
 
-  const handleGerarProposta = async () => {
-    if (propostas.length > 0) {
-      const confirmar = window.confirm(
-        `Já existem ${propostas.length} proposta(s) gerada(s).\n\nDeseja gerar uma nova proposta adicional?`
-      );
-      if (!confirmar) return;
-    }
-    setGerando(true);
-    try {
-      const res = await fetch(`${SOFIA_BACKEND}/api/proposta/${id}`, { method: 'POST' });
-      if (!res.ok) throw new Error('Erro ao gerar proposta');
-      // Reload propostas
-      const supabase = createClient();
-      const { data: props } = await supabase.from('propostas').select('*').eq('lead_id', id).order('created_at');
-      setPropostas(props ?? []);
-      if (props && props.length > 0) {
-        const [modsRes, servsRes] = await Promise.all([
-          supabase.from('proposta_modulos').select('*').eq('proposta_id', props[0].id).order('ordem'),
-          supabase.from('proposta_servicos').select('*').eq('proposta_id', props[0].id),
-        ]);
-        setModulos(modsRes.data ?? []);
-        setServicos(servsRes.data ?? []);
-      }
-      setTab('proposta');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGerando(false);
-    }
-  };
 
   const handleDeleteProposta = async (propostaId: string) => {
     const confirmar = window.confirm('Tem certeza que deseja apagar esta proposta? Essa ação não pode ser desfeita.');
@@ -702,42 +669,6 @@ export default function LeadDetailPage() {
             </div>
           )}
 
-          {/* Botão Encaminhar para Agenor */}
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '0.5rem' }}>
-            <button
-              onClick={handleGerarProposta}
-              disabled={gerando}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.6rem',
-                padding: '0.8rem 2rem',
-                background: gerando ? 'rgba(212,160,74,0.1)' : 'linear-gradient(135deg, rgba(212,160,74,0.2), rgba(184,130,107,0.2))',
-                border: '1px solid rgba(212,160,74,0.4)',
-                color: 'var(--gold-100)',
-                fontSize: '0.82rem', fontWeight: 500,
-                fontFamily: "var(--font-jetbrains), 'JetBrains Mono', monospace",
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                cursor: gerando ? 'wait' : 'pointer',
-                transition: 'all 0.3s',
-              }}
-            >
-              {gerando ? (
-                <>
-                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                  Agenor está gerando a proposta...
-                </>
-              ) : propostas.length > 0 ? (
-                <>
-                  <RotateCcw size={16} />
-                  Regerar proposta com Agenor
-                </>
-              ) : (
-                <>
-                  <Send size={16} />
-                  Encaminhar para Agenor
-                </>
-              )}
-            </button>
-          </div>
         </div>
       )}
 
@@ -784,21 +715,10 @@ export default function LeadDetailPage() {
         <div style={{ display: 'grid', gap: '1rem' }}>
           {propostas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-              <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '1.2rem' }}>Nenhuma proposta gerada.</p>
-              <button
-                onClick={handleGerarProposta}
-                disabled={gerando}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.7rem 1.8rem',
-                  background: 'linear-gradient(135deg, rgba(212,160,74,0.2), rgba(184,130,107,0.2))',
-                  border: '1px solid rgba(212,160,74,0.4)', color: 'var(--gold-100)',
-                  fontSize: '0.8rem', fontFamily: "var(--font-jetbrains)", letterSpacing: '0.08em',
-                  textTransform: 'uppercase', cursor: gerando ? 'wait' : 'pointer',
-                }}
-              >
-                {gerando ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><Send size={14} /> Gerar com Agenor</>}
-              </button>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '0.6rem' }}>Nenhuma proposta ainda.</p>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>
+                A criação de propostas a partir do template da marca chega na próxima etapa.
+              </p>
             </div>
           ) : (
             propostas.map((p) => (

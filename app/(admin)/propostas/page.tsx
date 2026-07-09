@@ -6,7 +6,7 @@ import { useCachedFetch } from '@/lib/use-cached-fetch';
 import { formatBRL } from '@/lib/format';
 import {
   Globe, Copy, ExternalLink, Lock, Unlock, Trash2, Pencil, Eye,
-  CheckCircle, XCircle, MessageCircle, Plus, FileText, Search,
+  CheckCircle, XCircle, MessageCircle, Search,
 } from 'lucide-react';
 
 interface Proposta {
@@ -23,15 +23,7 @@ interface Proposta {
   proposta_aceites: { nome: string; aceito_em: string; status: string }[] | null;
 }
 
-interface AgenorProposal {
-  id: string;
-  client_name: string;
-  briefing: string;
-  status: string;
-  created_at: string;
-}
-
-type FilterKey = 'todas' | 'publicadas' | 'rascunho' | 'aceitas' | 'manuais';
+type FilterKey = 'todas' | 'publicadas' | 'rascunho' | 'aceitas';
 
 export default function PropostasPage() {
   const [filter, setFilter] = useState<FilterKey>('todas');
@@ -39,28 +31,17 @@ export default function PropostasPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ client_name: '', briefing: '' });
-  const [submitting, setSubmitting] = useState(false);
 
   const [cached, loading] = useCachedFetch('propostas-unified', async () => {
     const supabase = createClient();
-    const [propRes, agenorRes] = await Promise.all([
-      supabase.from('propostas')
-        .select('id, lead_id, status, resumo, custo_total_centavos, total_horas, senha_acesso, ultimo_acesso_cliente, created_at, leads(nome_cliente, whatsapp_numero), proposta_aceites(nome, aceito_em, status)')
-        .order('created_at', { ascending: false }),
-      supabase.from('agenor_proposals').select('*').order('created_at', { ascending: false }),
-    ]);
-    return {
-      propostas: (propRes.data ?? []) as unknown as Proposta[],
-      manuais: (agenorRes.data ?? []) as AgenorProposal[],
-    };
+    const { data } = await supabase.from('propostas')
+      .select('id, lead_id, status, resumo, custo_total_centavos, total_horas, senha_acesso, ultimo_acesso_cliente, created_at, leads(nome_cliente, whatsapp_numero), proposta_aceites(nome, aceito_em, status)')
+      .order('created_at', { ascending: false });
+    return { propostas: (data ?? []) as unknown as Proposta[] };
   });
 
   const [localPropostas, setLocalPropostas] = useState<Proposta[] | null>(null);
-  const [localManuais, setLocalManuais] = useState<AgenorProposal[] | null>(null);
   const propostas = localPropostas ?? cached?.propostas ?? [];
-  const manuais = localManuais ?? cached?.manuais ?? [];
 
   // Filters
   const publicadas = propostas.filter(p => p.senha_acesso);
@@ -70,23 +51,17 @@ export default function PropostasPage() {
   const filteredPropostas = filter === 'publicadas' ? publicadas
     : filter === 'rascunho' ? rascunho
     : filter === 'aceitas' ? aceitas
-    : filter === 'manuais' ? []
     : propostas;
 
   const searchedPropostas = search
     ? filteredPropostas.filter(p => (p.leads?.nome_cliente || '').toLowerCase().includes(search.toLowerCase()))
     : filteredPropostas;
 
-  const searchedManuais = filter === 'todas' || filter === 'manuais'
-    ? (search ? manuais.filter(m => m.client_name.toLowerCase().includes(search.toLowerCase())) : manuais)
-    : [];
-
   const stats = {
-    todas: propostas.length + manuais.length,
+    todas: propostas.length,
     publicadas: publicadas.length,
     rascunho: rascunho.length,
     aceitas: aceitas.length,
-    manuais: manuais.length,
   };
 
   const filterButtons: { key: FilterKey; label: string; count: number }[] = [
@@ -94,7 +69,6 @@ export default function PropostasPage() {
     { key: 'publicadas', label: 'Publicadas', count: stats.publicadas },
     { key: 'rascunho', label: 'Rascunho', count: stats.rascunho },
     { key: 'aceitas', label: 'Aceitas', count: stats.aceitas },
-    { key: 'manuais', label: 'Manuais', count: stats.manuais },
   ];
 
   const handleCopy = (id: string) => {
@@ -133,28 +107,6 @@ export default function PropostasPage() {
     setDeletingId(null);
   };
 
-  const handleSubmitManual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.client_name || !formData.briefing) return;
-    setSubmitting(true);
-    const supabase = createClient();
-    await supabase.from('agenor_proposals').insert({
-      client_name: formData.client_name,
-      briefing: formData.briefing,
-      scope: { tasks: [], deliverables: [] },
-      pricing: { total: 0, breakdown: [] },
-      timeline: { weeks: 0, milestones: [] },
-      status: 'draft',
-    });
-    setFormData({ client_name: '', briefing: '' });
-    setShowForm(false);
-    setSubmitting(false);
-    // Reload
-    const supabase2 = createClient();
-    const { data } = await supabase2.from('agenor_proposals').select('*').order('created_at', { ascending: false });
-    setLocalManuais((data ?? []) as AgenorProposal[]);
-  };
-
   function getAceiteStatus(p: Proposta) {
     const aceites = p.proposta_aceites || [];
     const aceito = aceites.find(a => a.status === 'aceito');
@@ -180,39 +132,8 @@ export default function PropostasPage() {
           }}>
             <Eye size={14} /> Acessos
           </a>
-          <button
-            className="cases-show-all"
-            style={{ padding: '0.5rem 1rem', fontSize: '0.72rem' }}
-            onClick={() => setShowForm(!showForm)}
-          >
-            <Plus size={14} /> Nova manual
-          </button>
         </div>
       </div>
-
-      {/* Form nova proposta manual */}
-      {showForm && (
-        <form
-          onSubmit={handleSubmitManual}
-          className="dash-card"
-          style={{ marginBottom: '1.5rem', display: 'grid', gap: '1.2rem' }}
-        >
-          <div className="login-field">
-            <label htmlFor="client_name">Nome do cliente</label>
-            <input id="client_name" type="text" value={formData.client_name} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} placeholder="Empresa ou nome do cliente" required />
-          </div>
-          <div className="login-field">
-            <label htmlFor="briefing">Briefing</label>
-            <textarea id="briefing" value={formData.briefing} onChange={(e) => setFormData({ ...formData, briefing: e.target.value })} placeholder="Descreva o projeto..." required rows={4} style={{
-              width: '100%', padding: '0.9rem 1rem', background: 'rgba(10, 8, 20, 0.6)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontFamily: "var(--font-manrope), sans-serif", fontSize: '0.95rem', resize: 'vertical', outline: 'none',
-            }} />
-          </div>
-          <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
-            <button type="button" className="cases-show-all" style={{ padding: '0.5rem 1rem', fontSize: '0.72rem' }} onClick={() => setShowForm(false)}>Cancelar</button>
-            <button type="submit" className="login-submit" style={{ width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.78rem' }} disabled={submitting}>{submitting ? 'Criando...' : 'Criar proposta'}</button>
-          </div>
-        </form>
-      )}
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -252,17 +173,8 @@ export default function PropostasPage() {
         <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Carregando...</p>
       ) : (
         <>
-          {/* Propostas de leads */}
-          {searchedPropostas.length > 0 && (
+          {searchedPropostas.length > 0 ? (
             <div style={{ display: 'grid', gap: '0.7rem', marginBottom: '2rem' }}>
-              {filter !== 'manuais' && (
-                <div style={{
-                  fontSize: '0.72rem', fontFamily: "var(--font-jetbrains)", letterSpacing: '0.15em',
-                  color: 'var(--gold-300)', textTransform: 'uppercase', marginBottom: '0.3rem',
-                }}>
-                  Propostas de leads ({searchedPropostas.length})
-                </div>
-              )}
               {searchedPropostas.map(p => {
                 const aceiteStatus = getAceiteStatus(p);
                 const AceiteIcon = aceiteStatus?.icon;
@@ -376,51 +288,7 @@ export default function PropostasPage() {
                 );
               })}
             </div>
-          )}
-
-          {/* Propostas manuais */}
-          {searchedManuais.length > 0 && (
-            <div>
-              <div style={{
-                fontSize: '0.72rem', fontFamily: "var(--font-jetbrains)", letterSpacing: '0.15em',
-                color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.8rem',
-              }}>
-                Propostas manuais ({searchedManuais.length})
-              </div>
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th>
-                      <th>Status</th>
-                      <th>Briefing</th>
-                      <th>Criada</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {searchedManuais.map((p) => (
-                      <tr key={p.id}>
-                        <td style={{ fontWeight: 500 }}>{p.client_name}</td>
-                        <td>
-                          <span className={`status-badge ${p.status === 'sent' ? 'status-active' : p.status === 'accepted' ? 'status-qualified' : p.status === 'rejected' ? 'status-archived' : ''}`}>
-                            {p.status === 'draft' ? 'Rascunho' : p.status === 'sent' ? 'Enviada' : p.status === 'accepted' ? 'Aceita' : p.status === 'rejected' ? 'Recusada' : p.status}
-                          </span>
-                        </td>
-                        <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                          {p.briefing}
-                        </td>
-                        <td style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>
-                          {new Date(p.created_at).toLocaleDateString('pt-BR')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {searchedPropostas.length === 0 && searchedManuais.length === 0 && (
+          ) : (
             <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Nenhuma proposta encontrada.</p>
           )}
         </>
