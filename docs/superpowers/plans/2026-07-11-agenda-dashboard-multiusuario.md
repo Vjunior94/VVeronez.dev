@@ -69,6 +69,7 @@ revoke all on function public.current_usuario_id() from public, anon;
 grant execute on function public.current_usuario_id() to authenticated, service_role;
 
 -- 3. usuarios: admin vê todas; usuário comum vê a própria. Escrita = admin.
+alter table public.usuarios enable row level security;
 drop policy if exists admin_all on public.usuarios;
 drop policy if exists usuarios_self_read on public.usuarios;
 drop policy if exists usuarios_admin_write on public.usuarios;
@@ -78,18 +79,23 @@ create policy usuarios_self_read on public.usuarios
 create policy usuarios_admin_write on public.usuarios
   for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
+revoke all on public.usuarios from anon;
+grant select, insert, update, delete on public.usuarios to authenticated;
 
 -- 4. agenda_compromissos e agenda_lembretes: admin OU dono.
 do $$
 declare t text;
 begin
   foreach t in array array['agenda_compromissos','agenda_lembretes'] loop
+    execute format('alter table public.%I enable row level security;', t);
     execute format('drop policy if exists admin_all on public.%I;', t);
     execute format('drop policy if exists owner_all on public.%I;', t);
     execute format(
       'create policy owner_all on public.%I for all to authenticated '
       'using (public.is_admin() or usuario_id = public.current_usuario_id()) '
       'with check (public.is_admin() or usuario_id = public.current_usuario_id());', t);
+    execute format('revoke all on public.%I from anon;', t);
+    execute format('grant select, insert, update, delete on public.%I to authenticated;', t);
   end loop;
 end $$;
 
