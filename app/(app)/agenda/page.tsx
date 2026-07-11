@@ -103,6 +103,8 @@ export default function AgendaPage() {
           )}
           <input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })}
             style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', color: 'var(--gold-100)' }} />
+          <input placeholder="Descrição (opcional)" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+            style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', color: 'var(--gold-100)' }} />
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })}
               style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', color: 'var(--gold-100)' }} />
