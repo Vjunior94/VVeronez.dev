@@ -42,7 +42,7 @@ if (!outro) {
   outro = (todos ?? []).map((r) => r.id).find((id) => id !== henUsuarioId);
 }
 if (!outro) {
-  console.warn('AVISO: nenhum outro usuario disponivel — probe de escrita cruzada NAO executado.');
+  falhas.push('probe de escrita cruzada NAO pode rodar (nenhum outro usuario visivel ao admin) — nao posso confirmar isolamento de escrita; verifique o ambiente/seed');
 } else {
   const { error } = await hen.from('agenda_compromissos').insert({ usuario_id: outro, titulo: '__probe__', inicio_em: new Date().toISOString() });
   if (!error) falhas.push(`Henrique CONSEGUIU criar compromisso como outro dono ${outro} (VAZAMENTO)`);
