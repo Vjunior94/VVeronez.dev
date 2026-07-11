@@ -18,7 +18,8 @@ if (!userId) {
 }
 if (!userId) { console.error('não consegui obter o id do auth user'); process.exit(1); }
 
-// 2. liga usuarios.auth_user_id
-const { error: upErr } = await admin.from('usuarios').update({ auth_user_id: userId }).eq('whatsapp_numero', numero.replace(/\D/g, ''));
+// 2. liga usuarios.auth_user_id (checa que UMA linha foi de fato atualizada)
+const { data: linhas, error: upErr } = await admin.from('usuarios').update({ auth_user_id: userId }).eq('whatsapp_numero', numero.replace(/\D/g, '')).select('id');
 if (upErr) { console.error('erro ligando usuarios.auth_user_id:', upErr.message); process.exit(1); }
-console.log(`OK: ${email} (auth ${userId}) ligado ao usuarios numero ${numero}. Senha temp: ${senha}`);
+if (!linhas || linhas.length === 0) { console.error(`nenhuma linha em usuarios com numero ${numero} — rode a migration/seed antes`); process.exit(1); }
+console.log(`OK: ${email} (auth ${userId}) ligado ao usuarios numero ${numero} (${linhas.length} linha). Senha temp (nao capture em log compartilhado): ${senha}`);
