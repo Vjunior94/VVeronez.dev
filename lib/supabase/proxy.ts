@@ -70,6 +70,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // /agenda é acessível a QUALQUER usuário logado (admin ou comum).
+  // A RLS por-usuário garante que cada um só enxerga a própria agenda.
+  if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
+    return supabaseResponse;
+  }
+
   // Rota protegida com sessão → precisa ser admin. Fail-closed: qualquer
   // falha na verificação (tabela ausente, erro de rede, is_admin=false)
   // resulta em bloqueio, não em acesso liberado.
