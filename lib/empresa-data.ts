@@ -71,9 +71,9 @@ function valorAmbiguo(bruto: string): boolean {
 }
 
 /** Mensagem específica pro porquê de `reaisParaCentavos` ter rejeitado — usada pelas
- *  telas de validação (validarCusto/validarObrigacao) pra não devolver "Valor inválido."
- *  genérico quando o problema real é ambiguidade ou sinal negativo. */
-function motivoValorInvalido(v: string): string {
+ *  telas de validação (validarCusto/validarObrigacao/AbaIdentidade) pra não devolver
+ *  "Valor inválido." genérico quando o problema real é ambiguidade ou sinal negativo. */
+export function motivoValorInvalido(v: string): string {
   const bruto = v.trim();
   if (valorAmbiguo(bruto)) return 'Valor ambíguo: use vírgula para os centavos, ex.: 1200,00.';
   const limpo = bruto.includes(',') ? bruto.replace(/\./g, '').replace(',', '.') : bruto;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Copy, Check, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import {
-  salvarEmpresa, alertaCertificado,
+  salvarEmpresa, alertaCertificado, reaisParaCentavos, motivoValorInvalido,
   type EmpresaDados, type Portal, type Documento,
 } from '@/lib/empresa-data';
 import { inputStyle, botaoStyle, labelStyle } from '@/components/empresa/estilos';
@@ -42,12 +42,37 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
   const [e, setE] = useState<EmpresaDados>(empresa);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  // Capital social mora em `e.capital_social_centavos` (centavos), mas o usuário digita em
+  // reais — precisa de um state string à parte, igual ao padrão de valor_reais em AbaCustos.
+  const [capitalSocial, setCapitalSocial] = useState(
+    empresa.capital_social_centavos != null
+      ? (empresa.capital_social_centavos / 100).toFixed(2).replace('.', ',')
+      : '',
+  );
 
   const set = <K extends keyof EmpresaDados>(k: K, v: EmpresaDados[K]) => setE((prev) => ({ ...prev, [k]: v }));
   const alerta = alertaCertificado(e.certificado, hojeISO());
 
   const salvar = async () => {
     setSalvando(true); setErro('');
+
+    // reaisParaCentavos rejeita entrada ambígua (ex.: "1.200" sem vírgula) devolvendo null —
+    // aborta o save e mostra o motivo em vez de gravar lixo ou silenciosamente virar null.
+    const capitalCentavos = capitalSocial.trim() ? reaisParaCentavos(capitalSocial) : null;
+    if (capitalSocial.trim() && capitalCentavos == null) {
+      setErro(motivoValorInvalido(capitalSocial));
+      setSalvando(false);
+      return;
+    }
+
+    const diaFechamento = e.contador.dia_fechamento;
+    if (diaFechamento != null
+      && (!Number.isInteger(diaFechamento) || diaFechamento < 1 || diaFechamento > 31)) {
+      setErro('Dia do fechamento deve ficar entre 1 e 31.');
+      setSalvando(false);
+      return;
+    }
+
     const { id, ...dados } = e;
     // M1: limpar um <input type="date"> dispara onChange com '', e a coluna do Postgres é
     // `date` — mandar '' pra lá estoura "invalid input syntax for type date: \"\"" cru na
@@ -56,6 +81,10 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
       ...dados,
       data_abertura: dados.data_abertura || null,
       certificado: { ...dados.certificado, validade: dados.certificado.validade || null },
+      capital_social_centavos: capitalCentavos,
+      // "Adicionar CNAE" cria uma linha vazia pro usuário preencher — se ele deixar em
+      // branco, não deve virar item na coluna text[].
+      cnaes_secundarios: dados.cnaes_secundarios.map((c) => c.trim()).filter(Boolean),
     };
     const { error } = await salvarEmpresa(id, payload);
     setSalvando(false);
@@ -89,7 +118,29 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
             <input type="date" value={e.data_abertura ?? ''} onChange={(ev) => set('data_abertura', ev.target.value)} style={inputStyle} />
           </label>
           <Campo label="Regime tributário" valor={e.regime_tributario} onChange={(v) => set('regime_tributario', v)} />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={labelStyle}>Capital social (R$)</span>
+            <input placeholder="Ex.: 10.000,00" value={capitalSocial}
+              onChange={(ev) => setCapitalSocial(ev.target.value)} style={inputStyle} />
+          </label>
         </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">CNAEs secundários</div>
+        {e.cnaes_secundarios.map((cnae, i) => (
+          <div key={i} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <input placeholder="CNAE" value={cnae} style={{ ...inputStyle, flex: 1 }}
+              onChange={(ev) => set('cnaes_secundarios', e.cnaes_secundarios.map((x, j) => j === i ? ev.target.value : x))} />
+            <button type="button" onClick={() => set('cnaes_secundarios', e.cnaes_secundarios.filter((_, j) => j !== i))} aria-label="Remover CNAE" style={botaoStyle}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        <button type="button" style={{ ...botaoStyle, marginTop: '0.75rem' }}
+          onClick={() => set('cnaes_secundarios', [...e.cnaes_secundarios, ''])}>
+          <Plus size={14} /> Adicionar CNAE
+        </button>
       </section>
 
       <section className="dash-card">
@@ -109,6 +160,15 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
           <Campo label="Escritório" valor={e.contador.escritorio ?? ''} onChange={(v) => set('contador', { ...e.contador, escritorio: v })} />
           <Campo label="Telefone" valor={e.contador.telefone ?? ''} onChange={(v) => set('contador', { ...e.contador, telefone: v })} copiavel />
           <Campo label="E-mail" valor={e.contador.email ?? ''} onChange={(v) => set('contador', { ...e.contador, email: v })} copiavel />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={labelStyle}>Dia do fechamento</span>
+            <input type="number" min={1} max={31} placeholder="Opcional" style={inputStyle}
+              value={e.contador.dia_fechamento ?? ''}
+              onChange={(ev) => set('contador', {
+                ...e.contador,
+                dia_fechamento: ev.target.value ? Number(ev.target.value) : undefined,
+              })} />
+          </label>
         </div>
       </section>
 
