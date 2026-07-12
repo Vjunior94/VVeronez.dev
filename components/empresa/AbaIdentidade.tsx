@@ -88,7 +88,12 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
     };
     const { error } = await salvarEmpresa(id, payload);
     setSalvando(false);
-    if (error) setErro(error); else onSalvo();
+    if (error) { setErro(error); return; }
+    // Minor 3: o payload já filtra CNAE secundário em branco antes de gravar, mas o state
+    // local (`e`) continuava com a linha vazia — o input sumia do banco só depois de um
+    // reload. Rehidrata o state com o mesmo array que foi salvo, pra tela e banco baterem.
+    setE((prev) => ({ ...prev, cnaes_secundarios: payload.cnaes_secundarios }));
+    onSalvo();
   };
 
   return (

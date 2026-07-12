@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   reaisParaCentavos, validarCusto, alertaCertificado, type CustoInput,
-  validarObrigacao, montarEspelhos, type ObrigacaoInput,
+  validarObrigacao, montarEspelhos, type ObrigacaoInput, marcarPaga,
 } from './empresa-data';
 import type { Ocorrencia } from './obrigacoes';
 
@@ -81,6 +81,22 @@ describe('validarCusto', () => {
 
   it('valor negativo tem mensagem específica', () => {
     expect(validarCusto(input({ valor_reais: '-50' }))).toBe('Valor não pode ser negativo.');
+  });
+});
+
+describe('marcarPaga', () => {
+  // Minor 1 da revisão: o prompt "Marcar paga" reusa o mesmo campo de dinheiro das outras
+  // telas — "1.200" precisa da mesma mensagem específica (ambíguo), não "Valor inválido."
+  // genérico. A validação roda antes de criar o client do Supabase, então dá pra testar
+  // sem mock (não bate na rede).
+  it('valor ambíguo tem mensagem específica, não "Valor inválido." genérico', async () => {
+    const { error } = await marcarPaga('oc-1', '1.200', '2026-07-12');
+    expect(error).toBe('Valor ambíguo: use vírgula para os centavos, ex.: 1200,00.');
+  });
+
+  it('valor negativo tem mensagem específica', async () => {
+    const { error } = await marcarPaga('oc-1', '-50', '2026-07-12');
+    expect(error).toBe('Valor não pode ser negativo.');
   });
 });
 

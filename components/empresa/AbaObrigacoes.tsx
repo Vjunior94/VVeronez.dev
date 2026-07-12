@@ -46,6 +46,15 @@ export default function AbaObrigacoes() {
   const [erro, setErro] = useState('');
 
   const recarregar = useCallback(async (comp: string) => {
+    // Minor 2: o <input type="month"> pode ficar vazio (ou incompleto) enquanto o Valmir
+    // apaga pra digitar outro mês — nesse instante `comp` é '' e `primeiroDia` viraria '-01',
+    // uma "data" que o Postgres rejeita com erro cru de parse. Não é um erro do usuário, é
+    // um estado transitório de digitação: preferimos silêncio (esvazia a lista e espera o
+    // próximo valor válido) a mostrar mensagem de erro por causa de um campo em edição.
+    if (!/^\d{4}-\d{2}$/.test(comp)) {
+      setOcorrencias([]); setErro(''); setLoading(false);
+      return;
+    }
     setLoading(true); setErro('');
     const primeiroDia = `${comp}-01`;
 

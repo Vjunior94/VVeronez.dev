@@ -412,10 +412,10 @@ export async function listarPagasDesde(competenciaInicial: string): Promise<Ocor
 
 /** Marca a ocorrência como paga e conclui o compromisso espelhado (o painel é o único escritor). */
 export async function marcarPaga(id: string, valorReais: string, pagoEmISO: string): Promise<{ error: string | null }> {
-  const supabase = createClient();
   const centavos = valorReais.trim() ? reaisParaCentavos(valorReais) : null;
-  if (valorReais.trim() && centavos == null) return { error: 'Valor inválido.' };
+  if (valorReais.trim() && centavos == null) return { error: motivoValorInvalido(valorReais) };
 
+  const supabase = createClient();
   const patch: Record<string, unknown> = {
     status: 'paga', pago_em: pagoEmISO, atualizado_em: new Date().toISOString(),
   };
