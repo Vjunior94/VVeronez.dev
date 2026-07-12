@@ -6,24 +6,11 @@ import {
   salvarEmpresa, alertaCertificado,
   type EmpresaDados, type Portal, type Documento,
 } from '@/lib/empresa-data';
+import { inputStyle, botaoStyle, labelStyle } from '@/components/empresa/estilos';
 
 function hojeISO(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-
-// Mesmo padrão inline usado em app/(app)/agenda/page.tsx e app/(admin)/settings/page.tsx —
-// não existe classe global de input no globals.css, cada tela estiliza os campos.
-const inputStyle: React.CSSProperties = {
-  padding: '0.5rem', background: 'rgba(255,255,255,0.03)',
-  border: '1px solid var(--border-subtle)', color: 'var(--gold-100)',
-  fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none',
-};
-const botaoStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '0.3rem',
-  background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--text-dim)',
-  cursor: 'pointer', padding: '0.4rem 0.6rem', fontSize: '0.78rem', fontFamily: 'inherit',
-};
-const labelStyle: React.CSSProperties = { fontSize: '0.75rem', opacity: 0.7, color: 'var(--text-dim)' };
 
 function Campo({ label, valor, onChange, copiavel = false }: {
   label: string; valor: string; onChange: (v: string) => void; copiavel?: boolean;

@@ -5,6 +5,7 @@ import { Building2, ScrollText, Wallet } from 'lucide-react';
 import { carregarEmpresa, type EmpresaDados } from '@/lib/empresa-data';
 import AbaIdentidade from '@/components/empresa/AbaIdentidade';
 import AbaObrigacoes from '@/components/empresa/AbaObrigacoes';
+import AbaCustos from '@/components/empresa/AbaCustos';
 
 type Aba = 'identidade' | 'obrigacoes' | 'custos';
 
@@ -59,7 +60,7 @@ export default function EmpresaPage() {
 
       {aba === 'identidade' && <AbaIdentidade empresa={empresa} onSalvo={recarregar} />}
       {aba === 'obrigacoes' && <AbaObrigacoes />}
-      {aba === 'custos' && <p style={{ opacity: 0.6 }}>Em construção (Task 8).</p>}
+      {aba === 'custos' && <AbaCustos empresa={empresa} onSalvo={recarregar} />}
     </div>
   );
 }
