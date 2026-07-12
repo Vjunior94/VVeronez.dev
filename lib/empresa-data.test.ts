@@ -131,12 +131,22 @@ describe('montarEspelhos', () => {
     expect(espelhos.map((e) => e.origem_id)).toEqual(['oc-1']);
   });
 
-  it('usa o nome do modelo no título, com fallback quando não encontra', () => {
+  it('usa o nome do modelo no título', () => {
     const [comNome] = montarEspelhos([ocorrencia({})], nomePorId, 'usuario-1');
     expect(comNome.titulo).toBe('Vence hoje: DAS');
+  });
 
-    const [semNome] = montarEspelhos([ocorrencia({ obrigacao_id: 'inexistente' })], nomePorId, 'usuario-1');
-    expect(semNome.titulo).toBe('Vence hoje: obrigação da empresa');
+  // nomePorId só contém modelos ATIVOS (é assim que quem chama monta o mapa, a
+  // partir de listarModelos()). Uma ocorrência pendente cujo obrigacao_id não
+  // está lá é órfã de um modelo já removido — não pode virar espelho na agenda,
+  // senão a Sofia cobra no WhatsApp uma obrigação que não existe mais.
+  it('não espelha ocorrência pendente de obrigação que não está entre os modelos ativos', () => {
+    const ocorrencias = [
+      ocorrencia({ id: 'oc-1', obrigacao_id: 'mod-1' }),
+      ocorrencia({ id: 'oc-2', obrigacao_id: 'mod-removido' }),
+    ];
+    const espelhos = montarEspelhos(ocorrencias, nomePorId, 'usuario-1');
+    expect(espelhos.map((e) => e.origem_id)).toEqual(['oc-1']);
   });
 
   // M1: hora_base/dias_semana/dia_mes explícitos como null, espelhando payload()

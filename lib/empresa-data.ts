@@ -187,6 +187,26 @@ export async function salvarObrigacao(input: ObrigacaoInput, id?: string): Promi
  * sem isso, a Sofia seguiria mandando "Vence hoje: X" no WhatsApp de uma
  * obrigação que o Valmir acabou de apagar. Ocorrências já `paga` não são
  * tocadas — são histórico.
+ *
+ * ORDEM DAS DUAS ÚLTIMAS ETAPAS É DE PROPÓSITO (e é contraintuitiva — não troque
+ * de volta): primeiro desativa os `agenda_compromissos` espelhados, DEPOIS
+ * dispensa as `empresa_obrigacao_ocorrencias`. Parece "errado" porque a leitura
+ * natural seria "dispensa a ocorrência, depois limpa o espelho dela". Mas é
+ * exatamente essa ordem que torna o retry uma mentira: se a chamada dispensasse
+ * as ocorrências primeiro e a etapa da agenda falhasse (rede, erro transitório),
+ * o estado ficaria com ocorrências já `dispensada` e espelhos ainda `ativo =
+ * true`. Ao clicar "remover" de novo, a busca abaixo filtra `status =
+ * 'pendente'` — não acha mais nada, devolve `{ error: null }` (sucesso falso) e
+ * os espelhos NUNCA MAIS são desativados. A Sofia continuaria mandando "Vence
+ * hoje: X" no WhatsApp de uma obrigação que já foi apagada — o bug exato que
+ * esta função existe para matar.
+ *
+ * Com a agenda desativada primeiro: se essa etapa falhar, a ocorrência
+ * continua `pendente` e a re-execução encontra ela de novo, refazendo as duas
+ * etapas do zero. Se a agenda tiver sucesso mas a dispensa falhar, o retry
+ * repete a etapa da agenda (no-op idempotente: `ativo = false` de novo) e
+ * então dispensa. Nas duas ordens de falha o retry converge para o estado
+ * correto — o que não acontecia antes.
  */
 export async function removerObrigacao(id: string): Promise<{ error: string | null }> {
   const supabase = createClient();
@@ -203,19 +223,20 @@ export async function removerObrigacao(id: string): Promise<{ error: string | nu
   const idsPendentes = (pendentes ?? []).map((o) => o.id as string);
   if (idsPendentes.length === 0) return { error: null };
 
-  const { error: erroDispensa } = await supabase
-    .from('empresa_obrigacao_ocorrencias')
-    .update({ status: 'dispensada', atualizado_em: new Date().toISOString() })
-    .in('id', idsPendentes);
-  if (erroDispensa) return { error: erroDispensa.message };
-
   // Mesmo espelho que marcarPaga desativa: origem/origem_id apontam pra ocorrência.
+  // Vai ANTES da dispensa — ver o porquê no comentário acima da função.
   const { error: erroAgenda } = await supabase
     .from('agenda_compromissos')
     .update({ ativo: false })
     .eq('origem', 'empresa_obrigacao')
     .in('origem_id', idsPendentes);
-  return { error: erroAgenda?.message ?? null };
+  if (erroAgenda) return { error: erroAgenda.message };
+
+  const { error: erroDispensa } = await supabase
+    .from('empresa_obrigacao_ocorrencias')
+    .update({ status: 'dispensada', atualizado_em: new Date().toISOString() })
+    .in('id', idsPendentes);
+  return { error: erroDispensa?.message ?? null };
 }
 
 /** A linha em `usuarios` ligada ao auth de quem está logado (dono do compromisso espelhado). */
@@ -245,12 +266,22 @@ export interface EspelhoAgenda {
  * em lib/agenda-data.ts): hoje ficam omitidos e dependem do default NULL da
  * coluna, mas o CHECK de coerência recorrência↔campos mora no repo da Sofia —
  * um default futuro ali quebraria só este insert sem avisar.
+ *
+ * `nomePorId` só tem entrada pros modelos ATIVOS: quem chama monta esse mapa a
+ * partir de `listarModelos()`, que já filtra `ativo = true`. Por isso ele também
+ * serve pra filtrar, não só pra achar o nome — uma ocorrência `pendente` cujo
+ * `obrigacao_id` não está no mapa é órfã de um modelo já removido (ex.: a busca
+ * de `listarOcorrencias` traz o mês inteiro sem olhar pro modelo). Sem esse
+ * filtro ela viraria um espelho com o título de fallback "obrigação da
+ * empresa" — a Sofia cobraria no WhatsApp algo que já foi apagado, e o
+ * fallback bonito esconderia o sintoma em vez de revelar o dado órfão.
  */
 export function montarEspelhos(
   ocorrencias: Ocorrencia[], nomePorId: Map<string, string>, dono: string,
 ): EspelhoAgenda[] {
   return ocorrencias
     .filter((o) => o.status === 'pendente')
+    .filter((o) => nomePorId.has(o.obrigacao_id))
     .map((o) => ({
       usuario_id: dono,
       titulo: `Vence hoje: ${nomePorId.get(o.obrigacao_id) ?? 'obrigação da empresa'}`,
