@@ -1,9 +1,15 @@
 // Cria (ou acha) um auth user por e-mail e liga usuarios.auth_user_id.
 // Uso: node scripts/provisionar-usuario.mjs <email> <whatsapp_numero> [senha_temp]
 import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'node:crypto';
 
-const [, , email, numero, senha = 'Trocar@123'] = process.argv;
+const [, , email, numero, senhaArg] = process.argv;
 if (!email || !numero) { console.error('uso: node scripts/provisionar-usuario.mjs <email> <numero> [senha]'); process.exit(2); }
+
+// NUNCA usar senha default fixa: o endpoint de auth do Supabase é público e a anon
+// key vai no bundle do browser — uma senha conhecida = bypass de autenticação com
+// um único palpite. Sem senha explícita, gera uma forte e aleatória.
+const senha = senhaArg || randomBytes(18).toString('base64url');
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
