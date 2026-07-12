@@ -37,19 +37,65 @@ for (const t of TABELAS) {
   if ((aVe ?? []).length > 0) falhas.push(`ANONIMO enxerga ${aVe.length} linha(s) de ${t} (VAZAMENTO GRAVE)`);
 }
 
-// 3. Escrita: o comum tem que ser REJEITADO. "Nao aparecer" nao basta.
-const { error: escritaComum } = await comum
-  .from('empresa_custos_fixos').insert({ nome: '__probe__', valor_centavos: 1 });
-if (!escritaComum) falhas.push('usuario comum CONSEGUIU inserir em empresa_custos_fixos (VAZAMENTO)');
+// 3. Escrita: o comum tem que ser REJEITADO em TODAS as tabelas. "Nao aparecer" nao basta.
+//    Payloads: cada tabela com colunas not null minimizadas.
+//    empresa_obrigacao_ocorrencias é especial: FK pode barrar DEPOIS da RLS, então detecta erro de FK (23503).
+const probes = [
+  {
+    tabela: 'empresa_dados',
+    payload: { razao_social: '__probe__' },
+    payloadAnon: { razao_social: '__probe_anon__' }
+  },
+  {
+    tabela: 'empresa_obrigacoes',
+    payload: { nome: '__probe__' },
+    payloadAnon: { nome: '__probe_anon__' }
+  },
+  {
+    tabela: 'empresa_obrigacao_ocorrencias',
+    payload: { obrigacao_id: '11111111-1111-1111-1111-111111111111', competencia: '2099-01-01', vencimento: '2099-01-01' },
+    payloadAnon: { obrigacao_id: '22222222-2222-2222-2222-222222222222', competencia: '2099-01-01', vencimento: '2099-01-01' }
+  },
+  {
+    tabela: 'empresa_custos_fixos',
+    payload: { nome: '__probe__', valor_centavos: 1 },
+    payloadAnon: { nome: '__probe_anon__', valor_centavos: 1 }
+  }
+];
 
-const { error: escritaAnon } = await anonimo
-  .from('empresa_custos_fixos').insert({ nome: '__probe_anon__', valor_centavos: 1 });
-if (!escritaAnon) falhas.push('ANONIMO CONSEGUIU inserir em empresa_custos_fixos (VAZAMENTO GRAVE)');
+for (const p of probes) {
+  const { error: errComum, status: statusComum } = await comum.from(p.tabela).insert(p.payload);
+  if (!errComum) {
+    falhas.push(`usuario comum CONSEGUIU inserir em ${p.tabela} (VAZAMENTO)`);
+  } else if (p.tabela === 'empresa_obrigacao_ocorrencias' && errComum.code === '23503') {
+    // FK barrou: significa RLS deixou passar — é um vazamento.
+    falhas.push(`usuario comum PASSOU A RLS de ${p.tabela} mas foi barrado pela FK (VAZAMENTO)`);
+  }
+
+  const { error: errAnon } = await anonimo.from(p.tabela).insert(p.payloadAnon);
+  if (!errAnon) {
+    falhas.push(`ANONIMO CONSEGUIU inserir em ${p.tabela} (VAZAMENTO GRAVE)`);
+  } else if (p.tabela === 'empresa_obrigacao_ocorrencias' && errAnon.code === '23503') {
+    // FK barrou: significa RLS deixou passar — é um vazamento.
+    falhas.push(`ANONIMO PASSOU A RLS de ${p.tabela} mas foi barrado pela FK (VAZAMENTO GRAVE)`);
+  }
+}
 
 // Limpeza dos probes (se algum passou, precisa sumir).
 if (service) {
   const svc = createClient(url, service, { auth: { persistSession: false } });
-  await svc.from('empresa_custos_fixos').delete().in('nome', ['__probe__', '__probe_anon__']);
+  for (const t of TABELAS) {
+    if (t === 'empresa_obrigacao_ocorrencias') {
+      // Deletar por competencia '2099-01-01' (UUID não importa para RLS desabilitado).
+      await svc.from(t).delete().eq('competencia', '2099-01-01');
+    } else if (t === 'empresa_dados') {
+      // Deletar por razao_social.
+      await svc.from(t).delete().in('razao_social', ['__probe__', '__probe_anon__']);
+    } else {
+      // empresa_obrigacoes, empresa_custos_fixos: deletar por nome.
+      await svc.from(t).delete().in('nome', ['__probe__', '__probe_anon__']);
+    }
+  }
 } else {
   console.warn('AVISO: SUPABASE_SERVICE_ROLE_KEY ausente — nao limpei eventuais linhas __probe__.');
 }
