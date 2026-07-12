@@ -3,13 +3,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import {
-  listarCustos, salvarCusto, removerCusto, validarCusto, salvarEmpresa, listarModelos,
+  listarCustos, salvarCusto, removerCusto, validarCusto, salvarEmpresa, listarModelos, listarPagasDesde,
   type CustoInput, type EmpresaDados,
 } from '@/lib/empresa-data';
-import { custoFixoTotalMensal, custoMensalEmBRL, custoObrigacoesMensal, type CustoFixo } from '@/lib/custos';
-import type { ModeloObrigacao } from '@/lib/obrigacoes';
+import {
+  custoFixoTotalMensal, custoMensalEmBRL, custoObrigacoesMensal, mesesAnteriores, serieMensalPaga,
+  type CustoFixo,
+} from '@/lib/custos';
+import type { ModeloObrigacao, Ocorrencia } from '@/lib/obrigacoes';
 import { formatBRL } from '@/lib/format';
 import { inputStyle, botaoStyle, labelStyle, botaoPrimarioStyle } from '@/components/empresa/estilos';
+
+function hojeISO(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
 
 function vazio(): CustoInput {
   return { nome: '', categoria: '', valor_reais: '', moeda: 'BRL', ciclo: 'mensal', dia_cobranca: null, url: '' };
@@ -18,25 +25,32 @@ function vazio(): CustoInput {
 export default function AbaCustos({ empresa, onSalvo }: { empresa: EmpresaDados; onSalvo: () => void }) {
   const [custos, setCustos] = useState<CustoFixo[]>([]);
   const [modelos, setModelos] = useState<ModeloObrigacao[]>([]);
+  const [pagas, setPagas] = useState<Ocorrencia[]>([]);
   const [form, setForm] = useState<CustoInput | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [cotacao, setCotacao] = useState((empresa.cotacao_usd_centavos / 100).toFixed(2).replace('.', ','));
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // listarModelos LANÇA em erro de query (ver lib/empresa-data.ts) — sem o try/catch
-  // aqui vira unhandled rejection e a tela mostra "nenhuma assinatura cadastrada"
-  // quando a verdade é que a query falhou. Mesmo padrão de AbaObrigacoes.tsx.
+  // listarModelos/listarCustos/listarPagasDesde LANÇAM em erro de query (ver
+  // lib/empresa-data.ts) — sem o try/catch aqui vira unhandled rejection e a tela
+  // mostra "nenhuma assinatura cadastrada" quando a verdade é que a query falhou.
+  // Mesmo padrão de AbaObrigacoes.tsx.
   const recarregar = useCallback(async () => {
     setLoading(true); setErro('');
     try {
-      const [novosCustos, novosModelos] = await Promise.all([listarCustos(), listarModelos()]);
+      const meses = mesesAnteriores(hojeISO(), 12);
+      const [novosCustos, novosModelos, novasPagas] = await Promise.all([
+        listarCustos(), listarModelos(), listarPagasDesde(meses[0]),
+      ]);
       setCustos(novosCustos);
       setModelos(novosModelos);
+      setPagas(novasPagas);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar os custos.');
       setCustos([]);
       setModelos([]);
+      setPagas([]);
     } finally {
       setLoading(false);
     }
@@ -158,6 +172,35 @@ export default function AbaCustos({ empresa, onSalvo }: { empresa: EmpresaDados;
           </div>
         </section>
       )}
+
+      <section className="dash-card">
+        <div className="dash-card-label">Pago nos últimos 12 meses</div>
+        <p style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.25rem' }}>
+          Só obrigações já pagas e com valor informado. Serve para enxergar custo em alta.
+        </p>
+        {(() => {
+          const serie = serieMensalPaga(pagas, mesesAnteriores(hojeISO(), 12));
+          const teto = Math.max(...serie.map((s) => s.total_centavos), 1);
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.4rem', height: 140, marginTop: '1rem' }}>
+              {serie.map((s) => (
+                <div key={s.competencia} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}
+                  title={`${s.competencia.slice(0, 7)}: ${formatBRL(s.total_centavos)}`}>
+                  <div style={{
+                    width: '100%',
+                    height: `${Math.round((s.total_centavos / teto) * 100)}%`,
+                    minHeight: 2,
+                    background: 'var(--gold, #d4a04a)',
+                    borderRadius: '2px 2px 0 0',
+                    opacity: s.total_centavos === 0 ? 0.15 : 0.85,
+                  }} />
+                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{s.competencia.slice(5, 7)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </section>
     </div>
   );
 }

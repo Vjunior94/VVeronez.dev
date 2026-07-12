@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { custoMensalEmBRL, custoFixoTotalMensal, custoObrigacoesMensal, type CustoFixo } from './custos';
-import type { ModeloObrigacao } from './obrigacoes';
+import {
+  custoMensalEmBRL, custoFixoTotalMensal, custoObrigacoesMensal, mesesAnteriores, serieMensalPaga,
+  type CustoFixo,
+} from './custos';
+import type { ModeloObrigacao, Ocorrencia } from './obrigacoes';
 
 const custo = (c: Partial<CustoFixo>): CustoFixo => ({
   id: 'c1', nome: 'Vercel', categoria: 'infra', valor_centavos: 2000,
@@ -57,5 +60,45 @@ describe('custoObrigacoesMensal', () => {
       modelo({ id: 'velha', valor_padrao_centavos: 50000, ativo: false }),  // inativa
     ]);
     expect(total).toBe(90000);
+  });
+});
+
+const oc = (o: Partial<Ocorrencia>): Ocorrencia => ({
+  id: 'oc1', obrigacao_id: 'o1', competencia: '2026-07-01', vencimento: '2026-07-20',
+  valor_centavos: 90000, status: 'paga', pago_em: '2026-07-05', comprovante_url: null, ...o,
+});
+
+describe('mesesAnteriores', () => {
+  it('devolve as N competências até o mês corrente, do mais antigo ao mais novo', () => {
+    expect(mesesAnteriores('2026-07-12', 3)).toEqual(['2026-05-01', '2026-06-01', '2026-07-01']);
+  });
+
+  // A virada de ano é onde a aritmética ingênua de mês quebra.
+  it('atravessa a virada de ano', () => {
+    expect(mesesAnteriores('2026-02-10', 4)).toEqual(['2025-11-01', '2025-12-01', '2026-01-01', '2026-02-01']);
+  });
+});
+
+describe('serieMensalPaga', () => {
+  it('soma só as PAGAS, por competência', () => {
+    const serie = serieMensalPaga([
+      oc({ id: 'a', competencia: '2026-06-01', valor_centavos: 90000 }),
+      oc({ id: 'b', competencia: '2026-06-01', valor_centavos: 45000 }),
+      oc({ id: 'c', competencia: '2026-07-01', valor_centavos: 90000 }),
+      oc({ id: 'd', competencia: '2026-07-01', status: 'pendente', valor_centavos: 30000 }),  // não entra
+      oc({ id: 'e', competencia: '2026-07-01', status: 'paga', valor_centavos: null }),        // sem valor: não entra
+    ], ['2026-06-01', '2026-07-01']);
+
+    expect(serie).toEqual([
+      { competencia: '2026-06-01', total_centavos: 135000 },
+      { competencia: '2026-07-01', total_centavos: 90000 },
+    ]);
+  });
+
+  it('mês sem pagamento aparece com zero (o buraco na série é informação)', () => {
+    expect(serieMensalPaga([], ['2026-06-01', '2026-07-01'])).toEqual([
+      { competencia: '2026-06-01', total_centavos: 0 },
+      { competencia: '2026-07-01', total_centavos: 0 },
+    ]);
   });
 });

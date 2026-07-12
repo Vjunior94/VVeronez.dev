@@ -91,7 +91,11 @@ export async function salvarEmpresa(id: string, dados: Partial<EmpresaDados>): P
 
 export async function listarCustos(): Promise<CustoFixo[]> {
   const supabase = createClient();
-  const { data } = await supabase.from('empresa_custos_fixos').select(CUSTO_COLS).order('nome');
+  const { data, error } = await supabase.from('empresa_custos_fixos').select(CUSTO_COLS).order('nome');
+  // Lança em vez de devolver [] (mesmo critério de listarModelos): silenciar aqui faz
+  // a aba Custo fixo mostrar "nenhuma assinatura cadastrada" quando a query falhou —
+  // numa tela de dinheiro, "não tem dado" e "falhou" não podem parecer a mesma coisa.
+  if (error) throw new Error(error.message);
   return (data ?? []) as CustoFixo[];
 }
 
@@ -353,6 +357,19 @@ export async function listarOcorrencias(competencia: string): Promise<Ocorrencia
     .from('empresa_obrigacao_ocorrencias').select(OCORRENCIA_COLS)
     .eq('competencia', competenciaDe(competencia))
     .order('vencimento');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Ocorrencia[];
+}
+
+/** Ocorrências PAGAS a partir de uma competência — insumo da série de 12 meses. Lança em erro
+ *  de query (mesmo critério de listarModelos/listarCustos): ver comentário em listarCustos. */
+export async function listarPagasDesde(competenciaInicial: string): Promise<Ocorrencia[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('empresa_obrigacao_ocorrencias').select(OCORRENCIA_COLS)
+    .gte('competencia', competenciaDe(competenciaInicial))
+    .eq('status', 'paga')
+    .order('competencia');
   if (error) throw new Error(error.message);
   return (data ?? []) as Ocorrencia[];
 }
