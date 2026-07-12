@@ -17,6 +17,14 @@ const PUBLIC_PATHS = new Set([
 ]);
 const PUBLIC_PREFIXES = ['/proposta', '/imunolab'];
 
+/**
+ * Rotas que exigem sessão mas NÃO exigem admin — o único nível entre "público"
+ * e "admin". Manter esta lista curta e justificada: cada entrada precisa ter a
+ * autorização real garantida no backend (RLS do Supabase ou escopo da própria
+ * sessão), não no proxy.
+ */
+const AUTENTICADO_PREFIXES = ['/agenda', '/conta'];
+
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   // Arquivos estáticos (com extensão no último segmento) nunca são página
@@ -70,9 +78,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // /agenda é acessível a QUALQUER usuário logado (admin ou comum).
-  // A RLS por-usuário garante que cada um só enxerga a própria agenda.
-  if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
+  // Rotas acessíveis a QUALQUER usuário logado (admin ou comum):
+  //  - /agenda: a RLS por-usuário garante que cada um só enxerga a própria agenda.
+  //  - /conta:  o usuário troca a PRÓPRIA senha (supabase.auth.updateUser opera
+  //             sempre sobre a sessão de quem chama — não dá pra mexer em outra conta).
+  // Qualquer rota nova continua nascendo admin-only (deny-by-default).
+  if (AUTENTICADO_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     return supabaseResponse;
   }
 

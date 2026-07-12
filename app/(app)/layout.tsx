@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { CalendarDays, LogOut, LayoutDashboard } from 'lucide-react';
+import { CalendarDays, LogOut, LayoutDashboard, UserCog } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -36,7 +38,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </a>
         </div>
         <nav className="admin-sidebar-nav">
-          <a href="/agenda" className="admin-nav-link active"><CalendarDays /><span>Agenda</span></a>
+          <a href="/agenda" className={`admin-nav-link${pathname.startsWith('/agenda') ? ' active' : ''}`}><CalendarDays /><span>Agenda</span></a>
+          <a href="/conta" className={`admin-nav-link${pathname.startsWith('/conta') ? ' active' : ''}`}><UserCog /><span>Conta</span></a>
           {isAdmin && <a href="/dashboard" className="admin-nav-link"><LayoutDashboard /><span>Área admin</span></a>}
         </nav>
         <div className="admin-sidebar-footer">
