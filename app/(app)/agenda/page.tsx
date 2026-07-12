@@ -45,7 +45,11 @@ export default function AgendaPage() {
   const nomeDoUsuario = (id: string) => ctx?.usuarios.find((u) => u.id === id)?.nome ?? '';
 
   const abrirNovo = () => {
-    const dono = ctx?.isAdmin ? (escopo !== 'todos' ? escopo : (ctx.usuarios[0]?.id ?? '')) : (ctx?.meuUsuarioId ?? '');
+    // Com escopo "Todos", o dono default é o PRÓPRIO usuário — nunca o primeiro da lista
+    // (que é ordenada por nome, e mandaria o lembrete pro WhatsApp do outro sem avisar).
+    const dono = ctx?.isAdmin
+      ? (escopo !== 'todos' ? escopo : (ctx.meuUsuarioId ?? ctx.usuarios[0]?.id ?? ''))
+      : (ctx?.meuUsuarioId ?? '');
     setForm(vazio(dono)); setEditId(null); setErro('');
   };
 
