@@ -125,4 +125,14 @@ describe('descreverRegra', () => {
   it('única não tem regra', () => {
     expect(descreverRegra(regra({ recorrencia: 'nenhuma', inicio_em: new Date().toISOString() }))).toBe('');
   });
+
+  it('linha LEGADA (hora_base null): o rótulo deriva a hora de inicio_em, não sai vazio', () => {
+    // Sem isto o card do painel mostrava "todo dia às " — hora em branco.
+    const legado = regra({
+      recorrencia: 'diaria',
+      hora_base: null,
+      inicio_em: new Date(spIso('2026-06-01T10:30:00')).toISOString(),
+    });
+    expect(descreverRegra(legado)).toBe('todo dia às 10:30');
+  });
 });

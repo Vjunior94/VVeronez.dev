@@ -50,6 +50,14 @@ function horaBaseDeInicio(inicioEm: string | null): { hora: number; minuto: numb
   return { hora: p.hora, minuto: p.minuto };
 }
 
+/** A hora que a regra REALMENTE usa, como "HH:MM" — já com o shim de linha legada.
+ *  Rótulo que lê `hora_base` cru sai vazio ("todo dia às ") numa linha legada. */
+export function horaDaRegra(regra: Pick<RegraOcorrencia, 'hora_base' | 'inicio_em'>): string {
+  const b = parseHoraBase(regra.hora_base) ?? horaBaseDeInicio(regra.inicio_em);
+  if (!b) return '';
+  return `${String(b.hora).padStart(2, '0')}:${String(b.minuto).padStart(2, '0')}`;
+}
+
 export function proximaOcorrencia(regra: RegraOcorrencia, agora: Date): Date | null {
   if (regra.recorrencia === 'nenhuma') {
     if (!regra.inicio_em) return null;
@@ -95,7 +103,7 @@ const DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 /** Rótulo legível da regra. String vazia para compromisso único. */
 export function descreverRegra(regra: RegraOcorrencia): string {
-  const hh = (regra.hora_base ?? '').slice(0, 5);
+  const hh = horaDaRegra(regra); // não ler hora_base cru: em linha legada ela é nula
   switch (regra.recorrencia) {
     case 'diaria': return `todo dia às ${hh}`;
     case 'semanal': return `${(regra.dias_semana ?? []).map((d) => DIAS_CURTOS[d]).join('/')} às ${hh}`;
