@@ -4,17 +4,31 @@ import { spParaInstante } from '@/lib/tempo';
 export interface UsuarioAgenda { id: string; nome: string; whatsapp_numero: string }
 export interface Compromisso {
   id: string; usuario_id: string; titulo: string; descricao: string | null;
-  inicio_em: string; recorrencia: 'nenhuma' | 'diaria' | 'semanal';
-  dias_semana: number[] | null; antecedencia_min: number; ativo: boolean;
+  inicio_em: string | null; hora_base: string | null;
+  recorrencia: 'nenhuma' | 'diaria' | 'semanal' | 'mensal';
+  dias_semana: number[] | null; dia_mes: number | null;
+  antecedencia_min: number; ativo: boolean;
 }
 export interface ContextoAgenda { isAdmin: boolean; usuarios: UsuarioAgenda[]; meuUsuarioId: string | null }
 export type FormInput = {
   usuario_id: string; titulo: string; data: string; hora: string;
-  recorrencia: Compromisso['recorrencia']; dias_semana: number[];
+  recorrencia: Compromisso['recorrencia']; dias_semana: number[]; dia_mes: number;
   antecedencia_min: number; descricao: string;
 };
 
-const COLS = 'id, usuario_id, titulo, descricao, inicio_em, recorrencia, dias_semana, antecedencia_min, ativo';
+const COLS = 'id, usuario_id, titulo, descricao, inicio_em, hora_base, recorrencia, dias_semana, dia_mes, antecedencia_min, ativo';
+
+/** Espelha o CHECK do banco. Retorna a mensagem de erro, ou null se estiver ok. */
+export function validarForm(input: FormInput): string | null {
+  if (!input.titulo.trim()) return 'Título é obrigatório.';
+  if (!input.hora) return 'Hora é obrigatória.';
+  if (input.recorrencia === 'nenhuma' && !input.data) return 'Compromisso único precisa de data.';
+  if (input.recorrencia === 'semanal' && input.dias_semana.length === 0) return 'Escolha pelo menos um dia da semana.';
+  if (input.recorrencia === 'mensal' && (!input.dia_mes || input.dia_mes < 1 || input.dia_mes > 31)) {
+    return 'Escolha o dia do mês (1 a 31).';
+  }
+  return null;
+}
 
 export async function carregarContexto(): Promise<ContextoAgenda> {
   const supabase = createClient();
@@ -39,18 +53,22 @@ export async function listarCompromissos(usuarioId: string | 'todos'): Promise<C
   const supabase = createClient();
   let q = supabase.from('agenda_compromissos').select(COLS).eq('ativo', true);
   if (usuarioId !== 'todos') q = q.eq('usuario_id', usuarioId);
-  const { data } = await q.order('inicio_em', { ascending: true });
+  // Recorrente não tem inicio_em — a ordem de exibição é por próxima ocorrência, no cliente.
+  const { data } = await q.order('criado_em', { ascending: true });
   return (data ?? []) as Compromisso[];
 }
 
 function payload(input: FormInput) {
+  const recorrente = input.recorrencia !== 'nenhuma';
   return {
     usuario_id: input.usuario_id,
     titulo: input.titulo,
     descricao: input.descricao || null,
-    inicio_em: spParaInstante(input.data, input.hora),
+    inicio_em: recorrente ? null : spParaInstante(input.data, input.hora),
+    hora_base: recorrente ? input.hora : null,
     recorrencia: input.recorrencia,
     dias_semana: input.recorrencia === 'semanal' ? input.dias_semana : null,
+    dia_mes: input.recorrencia === 'mensal' ? input.dia_mes : null,
     antecedencia_min: input.antecedencia_min,
   };
 }
