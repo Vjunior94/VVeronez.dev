@@ -1,0 +1,190 @@
+'use client';
+
+import { useState } from 'react';
+import { Copy, Check, AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import {
+  salvarEmpresa, alertaCertificado,
+  type EmpresaDados, type Portal, type Documento,
+} from '@/lib/empresa-data';
+
+function hojeISO(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+// Mesmo padrão inline usado em app/(app)/agenda/page.tsx e app/(admin)/settings/page.tsx —
+// não existe classe global de input no globals.css, cada tela estiliza os campos.
+const inputStyle: React.CSSProperties = {
+  padding: '0.5rem', background: 'rgba(255,255,255,0.03)',
+  border: '1px solid var(--border-subtle)', color: 'var(--gold-100)',
+  fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none',
+};
+const botaoStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '0.3rem',
+  background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--text-dim)',
+  cursor: 'pointer', padding: '0.4rem 0.6rem', fontSize: '0.78rem', fontFamily: 'inherit',
+};
+const labelStyle: React.CSSProperties = { fontSize: '0.75rem', opacity: 0.7, color: 'var(--text-dim)' };
+
+function Campo({ label, valor, onChange, copiavel = false }: {
+  label: string; valor: string; onChange: (v: string) => void; copiavel?: boolean;
+}) {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async () => {
+    await navigator.clipboard.writeText(valor);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1500);
+  };
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <span style={labelStyle}>{label}</span>
+      <span style={{ display: 'flex', gap: '0.25rem' }}>
+        <input value={valor} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+        {copiavel && (
+          <button type="button" onClick={copiar} title={`Copiar ${label}`} disabled={!valor} style={botaoStyle}>
+            {copiado ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        )}
+      </span>
+    </label>
+  );
+}
+
+export default function AbaIdentidade({ empresa, onSalvo }: {
+  empresa: EmpresaDados; onSalvo: () => void;
+}) {
+  const [e, setE] = useState<EmpresaDados>(empresa);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  const set = <K extends keyof EmpresaDados>(k: K, v: EmpresaDados[K]) => setE((prev) => ({ ...prev, [k]: v }));
+  const alerta = alertaCertificado(e.certificado, hojeISO());
+
+  const salvar = async () => {
+    setSalvando(true); setErro('');
+    const { id, ...dados } = e;
+    const { error } = await salvarEmpresa(id, dados);
+    setSalvando(false);
+    if (error) setErro(error); else onSalvo();
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: '1.5rem', maxWidth: 960 }}>
+      {alerta && alerta.nivel !== 'ok' && (
+        <div className="dash-card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderColor: alerta.nivel === 'vencido' ? '#e85d75' : '#d4a04a' }}>
+          <AlertTriangle size={16} style={{ color: alerta.nivel === 'vencido' ? '#e85d75' : '#d4a04a', flexShrink: 0 }} />
+          <span>
+            {alerta.nivel === 'vencido'
+              ? `Certificado digital VENCIDO há ${Math.abs(alerta.dias)} dia(s) — emissão de nota fiscal travada.`
+              : `Certificado digital vence em ${alerta.dias} dia(s). Renove antes de travar a emissão de nota.`}
+          </span>
+        </div>
+      )}
+
+      <section className="dash-card">
+        <div className="dash-card-label">Cadastro</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.8rem' }}>
+          <Campo label="Razão social" valor={e.razao_social ?? ''} onChange={(v) => set('razao_social', v)} copiavel />
+          <Campo label="Nome fantasia" valor={e.nome_fantasia ?? ''} onChange={(v) => set('nome_fantasia', v)} />
+          <Campo label="CNPJ" valor={e.cnpj ?? ''} onChange={(v) => set('cnpj', v)} copiavel />
+          <Campo label="Inscrição estadual" valor={e.inscricao_estadual ?? ''} onChange={(v) => set('inscricao_estadual', v)} copiavel />
+          <Campo label="Inscrição municipal" valor={e.inscricao_municipal ?? ''} onChange={(v) => set('inscricao_municipal', v)} copiavel />
+          <Campo label="CNAE principal" valor={e.cnae_principal ?? ''} onChange={(v) => set('cnae_principal', v)} copiavel />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={labelStyle}>Data de abertura</span>
+            <input type="date" value={e.data_abertura ?? ''} onChange={(ev) => set('data_abertura', ev.target.value)} style={inputStyle} />
+          </label>
+          <Campo label="Regime tributário" valor={e.regime_tributario} onChange={(v) => set('regime_tributario', v)} />
+        </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">Endereço fiscal</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.8rem' }}>
+          {(['logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf', 'cep'] as const).map((k) => (
+            <Campo key={k} label={k[0].toUpperCase() + k.slice(1)} valor={e.endereco[k] ?? ''}
+              onChange={(v) => set('endereco', { ...e.endereco, [k]: v })} />
+          ))}
+        </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">Contador</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '0.8rem' }}>
+          <Campo label="Nome" valor={e.contador.nome ?? ''} onChange={(v) => set('contador', { ...e.contador, nome: v })} />
+          <Campo label="Escritório" valor={e.contador.escritorio ?? ''} onChange={(v) => set('contador', { ...e.contador, escritorio: v })} />
+          <Campo label="Telefone" valor={e.contador.telefone ?? ''} onChange={(v) => set('contador', { ...e.contador, telefone: v })} copiavel />
+          <Campo label="E-mail" valor={e.contador.email ?? ''} onChange={(v) => set('contador', { ...e.contador, email: v })} copiavel />
+        </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">Certificado digital</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '0.8rem' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={labelStyle}>Tipo</span>
+            <select value={e.certificado.tipo ?? 'A1'} style={inputStyle}
+              onChange={(ev) => set('certificado', { ...e.certificado, tipo: ev.target.value as 'A1' | 'A3' })}>
+              <option value="A1">A1</option>
+              <option value="A3">A3</option>
+            </select>
+          </label>
+          <Campo label="Emissor" valor={e.certificado.emissor ?? ''} onChange={(v) => set('certificado', { ...e.certificado, emissor: v })} />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={labelStyle}>Validade</span>
+            <input type="date" value={e.certificado.validade ?? ''} style={inputStyle}
+              onChange={(ev) => set('certificado', { ...e.certificado, validade: ev.target.value })} />
+          </label>
+        </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">Portais</div>
+        <p style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.5rem' }}>
+          Sem senha, de propósito. Guardamos só o link e o login — a senha fica no seu gerenciador.
+        </p>
+        {e.portais.map((p, i) => (
+          <div key={i} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <input placeholder="Nome" value={p.nome} style={{ ...inputStyle, flex: 1 }}
+              onChange={(ev) => set('portais', e.portais.map((x, j) => j === i ? { ...x, nome: ev.target.value } : x))} />
+            <input placeholder="URL" value={p.url} style={{ ...inputStyle, flex: 2 }}
+              onChange={(ev) => set('portais', e.portais.map((x, j) => j === i ? { ...x, url: ev.target.value } : x))} />
+            <input placeholder="Login" value={p.login} style={{ ...inputStyle, flex: 1 }}
+              onChange={(ev) => set('portais', e.portais.map((x, j) => j === i ? { ...x, login: ev.target.value } : x))} />
+            <button type="button" onClick={() => set('portais', e.portais.filter((_, j) => j !== i))} aria-label="Remover portal" style={botaoStyle}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        <button type="button" style={{ ...botaoStyle, marginTop: '0.75rem' }}
+          onClick={() => set('portais', [...e.portais, { nome: '', url: '', login: '' } as Portal])}>
+          <Plus size={14} /> Adicionar portal
+        </button>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-label">Documentos</div>
+        <p style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.5rem' }}>Link externo (Drive/OneDrive) — nada é enviado para o banco.</p>
+        {e.documentos.map((d, i) => (
+          <div key={i} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <input placeholder="Nome" value={d.nome} style={{ ...inputStyle, flex: 1 }}
+              onChange={(ev) => set('documentos', e.documentos.map((x, j) => j === i ? { ...x, nome: ev.target.value } : x))} />
+            <input placeholder="URL" value={d.url} style={{ ...inputStyle, flex: 2 }}
+              onChange={(ev) => set('documentos', e.documentos.map((x, j) => j === i ? { ...x, url: ev.target.value } : x))} />
+            <button type="button" onClick={() => set('documentos', e.documentos.filter((_, j) => j !== i))} aria-label="Remover documento" style={botaoStyle}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        <button type="button" style={{ ...botaoStyle, marginTop: '0.75rem' }}
+          onClick={() => set('documentos', [...e.documentos, { nome: '', url: '' } as Documento])}>
+          <Plus size={14} /> Adicionar documento
+        </button>
+      </section>
+
+      {erro && <div className="login-error">{erro}</div>}
+      <button onClick={salvar} disabled={salvando} className="admin-nav-link active" style={{ justifySelf: 'start', padding: '0.6rem 1.5rem', cursor: 'pointer', border: 'none' }}>
+        {salvando ? 'Salvando…' : 'Salvar'}
+      </button>
+    </div>
+  );
+}
