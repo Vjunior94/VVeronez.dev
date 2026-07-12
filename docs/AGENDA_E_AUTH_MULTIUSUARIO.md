@@ -8,10 +8,9 @@
 > **Leia isto antes de mexer em auth, RLS, `proxy.ts` ou em qualquer coisa sob `app/(app)/`.**
 > Este banco **já sofreu um vazamento real por RLS aberta** (é para isso que a migration 001 existe).
 
-> **Recorrência sem data (§4.1) — código pronto na branch `feat/agenda-recorrencia`, ainda não
-> deployado.** Depende das migrations `003` (expand) e `004` (contract), que moram no **repo da
-> Sofia** (`db/migrations/`), porque o schema da agenda é dele. A **004 ainda NÃO foi aplicada** —
-> ver §8.
+> **Recorrência sem data (§4.1): mergeada na `main` e no ar desde 2026-07-12.** As migrations `003`
+> (expand) e `004` (contract) moram no **repo da Sofia** (`db/migrations/`), porque o schema da
+> agenda é dele. **Ambas já foram aplicadas** — ver §8.
 
 ---
 
@@ -135,9 +134,10 @@ exibição é feita no React.
 mesmo offset SP fixo (−03:00), mesmo clamp de mensal (dia 31 → último dia do mês, sem virar
 permanente). **Não há monorepo nem pacote compartilhado: mudou aqui, mude lá — e vice-versa.**
 
-Por isso o dashboard ganhou **`vitest`** (`npm test` → `vitest run`, `lib/ocorrencia.test.ts`):
-copiar lógica de tempo sem teste foi exatamente como o bug de recorrência nasceu. `npm run build`
-não roda os testes — **rode `npm test` ao mexer em `lib/ocorrencia.ts`**.
+Por isso o dashboard ganhou **`vitest`** (`npm test` → `vitest run`; `lib/ocorrencia.test.ts` e
+`lib/agenda-data.test.ts`): copiar lógica de tempo sem teste foi exatamente como o bug de recorrência
+nasceu. `npm run build` **não roda os testes nem o lint** — **rode `npm test` ao mexer em
+`lib/ocorrencia.ts`**.
 
 ---
 
@@ -191,17 +191,22 @@ Ele **quebra o script nos `;` internos de um bloco `do $$ ... $$`**, deixando o 
 
 ---
 
-## 8. Rollout da recorrência sem data (expand/contract)
+## 8. Rollout da recorrência sem data (expand/contract) — CONCLUÍDO
 
 O schema de `agenda_compromissos` é do **repo da Sofia** — as duas migrations vivem lá
-(`db/migrations/`), e o banco é o mesmo. O rollout é em duas etapas porque a Sofia está **no ar**:
+(`db/migrations/`), e o banco é o mesmo. O rollout foi em duas etapas porque a Sofia está no ar:
 
 | migration (repo da Sofia) | o que faz | estado |
 |---|---|---|
-| `003_agenda_recorrencia.sql` — **expand** | adiciona `hora_base` (`time`) e `dia_mes` (`int`), `recorrencia` passa a aceitar `'mensal'`, backfill de `hora_base`, `inicio_em` vira **nullable** | aditiva e retrocompatível; pré-requisito do deploy |
-| `004_agenda_recorrencia_contract.sql` — **contract** | anula o `inicio_em` dos recorrentes e crava o CHECK da invariante (§4.1) | ⚠️ **AINDA NÃO APLICADA.** Depende do deploy. |
+| `003_agenda_recorrencia.sql` — **expand** | adiciona `hora_base` (`time`) e `dia_mes` (`int`), `recorrencia` passa a aceitar `'mensal'`, backfill de `hora_base`, `inicio_em` vira **nullable** | ✅ aplicada |
+| `004_agenda_recorrencia_contract.sql` — **contract** | anula o `inicio_em` dos recorrentes e crava o CHECK da invariante (§4.1) | ✅ **aplicada em 2026-07-12** |
 
-**Ordem obrigatória: 003 → deploy do backend da Sofia → deploy do dashboard → 004.**
-O **backend vai primeiro**: o painel novo grava recorrente com `inicio_em = null`, e o backend antigo
+Com a 004 no ar, o **CHECK do banco torna o estado incoerente irrepresentável** — `validarForm`
+(`lib/agenda-data.ts`) e a `validarEntrada` do backend são espelhos dele, não a defesa principal.
+**Mudou a invariante? Mude os três.**
+
+**Ordem que valeu (e que vale para qualquer mudança futura de schema da agenda): migration expand →
+deploy do backend da Sofia → deploy do dashboard → migration contract.**
+O **backend vai primeiro**: o painel grava recorrente com `inicio_em = null`, e o backend antigo
 quebraria ao ler essa linha. Como um push na `main` daqui **deploya sozinho na Vercel**, pushar o
 dashboard antes do backend estar no ar **é o jeito de quebrar os lembretes em produção**.
