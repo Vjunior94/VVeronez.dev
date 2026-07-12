@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import type { CustoFixo } from '@/lib/custos';
+import { spParaInstante } from '@/lib/tempo';
 import {
   competenciaDe, planoDeMaterializacao,
   type ModeloObrigacao, type Ocorrencia, type Periodicidade,
@@ -150,7 +151,11 @@ export function validarObrigacao(input: ObrigacaoInput): string | null {
 
 export async function listarModelos(): Promise<ModeloObrigacao[]> {
   const supabase = createClient();
-  const { data } = await supabase.from('empresa_obrigacoes').select(MODELO_COLS).eq('ativo', true).order('nome');
+  const { data, error } = await supabase.from('empresa_obrigacoes').select(MODELO_COLS).eq('ativo', true).order('nome');
+  // Lança em vez de devolver []: silenciar aqui faz a tela mostrar "nenhuma
+  // obrigação" quando na verdade a query falhou — a pior mensagem numa tela
+  // cujo propósito é não perder prazo de DAS.
+  if (error) throw new Error(error.message);
   return (data ?? []) as ModeloObrigacao[];
 }
 
@@ -177,10 +182,40 @@ export async function salvarObrigacao(input: ObrigacaoInput, id?: string): Promi
   return { error: error?.message ?? null };
 }
 
+/**
+ * Soft-delete do modelo + limpeza em cascata das ocorrências ainda pendentes:
+ * sem isso, a Sofia seguiria mandando "Vence hoje: X" no WhatsApp de uma
+ * obrigação que o Valmir acabou de apagar. Ocorrências já `paga` não são
+ * tocadas — são histórico.
+ */
 export async function removerObrigacao(id: string): Promise<{ error: string | null }> {
   const supabase = createClient();
   const { error } = await supabase.from('empresa_obrigacoes').update({ ativo: false }).eq('id', id);
-  return { error: error?.message ?? null };
+  if (error) return { error: error.message };
+
+  const { data: pendentes, error: erroBusca } = await supabase
+    .from('empresa_obrigacao_ocorrencias')
+    .select('id')
+    .eq('obrigacao_id', id)
+    .eq('status', 'pendente');
+  if (erroBusca) return { error: erroBusca.message };
+
+  const idsPendentes = (pendentes ?? []).map((o) => o.id as string);
+  if (idsPendentes.length === 0) return { error: null };
+
+  const { error: erroDispensa } = await supabase
+    .from('empresa_obrigacao_ocorrencias')
+    .update({ status: 'dispensada', atualizado_em: new Date().toISOString() })
+    .in('id', idsPendentes);
+  if (erroDispensa) return { error: erroDispensa.message };
+
+  // Mesmo espelho que marcarPaga desativa: origem/origem_id apontam pra ocorrência.
+  const { error: erroAgenda } = await supabase
+    .from('agenda_compromissos')
+    .update({ ativo: false })
+    .eq('origem', 'empresa_obrigacao')
+    .in('origem_id', idsPendentes);
+  return { error: erroAgenda?.message ?? null };
 }
 
 /** A linha em `usuarios` ligada ao auth de quem está logado (dono do compromisso espelhado). */
@@ -188,8 +223,48 @@ export async function meuUsuarioId(): Promise<string | null> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase.from('usuarios').select('id').eq('auth_user_id', user.id).maybeSingle();
+  const { data, error } = await supabase.from('usuarios').select('id').eq('auth_user_id', user.id).maybeSingle();
+  // null aqui só pode significar "não achei linha" (caso legítimo, tratado em
+  // garantirOcorrencias) — uma falha de query lança, não vira null disfarçado.
+  if (error) throw new Error(error.message);
   return data?.id ?? null;
+}
+
+export interface EspelhoAgenda {
+  usuario_id: string; titulo: string; descricao: string;
+  inicio_em: string; hora_base: null;
+  recorrencia: 'nenhuma'; dias_semana: null; dia_mes: null;
+  antecedencia_min: number; origem: 'empresa_obrigacao'; origem_id: string;
+}
+
+/**
+ * Monta o payload dos compromissos espelhados a partir das ocorrências pendentes.
+ * Pura (sem I/O) para dar pra testar sem banco.
+ *
+ * `hora_base`/`dias_semana`/`dia_mes` explícitos como null (espelha `payload()`
+ * em lib/agenda-data.ts): hoje ficam omitidos e dependem do default NULL da
+ * coluna, mas o CHECK de coerência recorrência↔campos mora no repo da Sofia —
+ * um default futuro ali quebraria só este insert sem avisar.
+ */
+export function montarEspelhos(
+  ocorrencias: Ocorrencia[], nomePorId: Map<string, string>, dono: string,
+): EspelhoAgenda[] {
+  return ocorrencias
+    .filter((o) => o.status === 'pendente')
+    .map((o) => ({
+      usuario_id: dono,
+      titulo: `Vence hoje: ${nomePorId.get(o.obrigacao_id) ?? 'obrigação da empresa'}`,
+      descricao: 'Obrigação da empresa (criado pela página /empresa).',
+      // 09:00 no fuso de SP, mesma função que a agenda usa pra compromisso único.
+      inicio_em: spParaInstante(o.vencimento, '09:00'),
+      hora_base: null,
+      recorrencia: 'nenhuma' as const,
+      dias_semana: null,
+      dia_mes: null,
+      antecedencia_min: 60,
+      origem: 'empresa_obrigacao' as const,
+      origem_id: o.id,
+    }));
 }
 
 /**
@@ -200,50 +275,54 @@ export async function meuUsuarioId(): Promise<string | null> {
  * Idempotente nas duas pontas: `ignoreDuplicates` no upsert bate no índice único
  * (obrigacao_id, competencia) das ocorrências, e em (origem, origem_id) na agenda.
  * Chamar dez vezes cria uma vez só.
+ *
+ * `listarModelos`/`meuUsuarioId`/`listarOcorrencias` lançam se a query falhar
+ * (em vez de devolver [] / null em silêncio) — o try/catch aqui é o que
+ * converte isso na assinatura pública `{ error }` sem contaminar quem as chama.
  */
 export async function garantirOcorrencias(competencia: string): Promise<{ error: string | null }> {
   const supabase = createClient();
-  const modelos = await listarModelos();
-  const plano = planoDeMaterializacao(modelos, competenciaDe(competencia));
-  if (plano.length === 0) return { error: null };
+  try {
+    const modelos = await listarModelos();
+    const plano = planoDeMaterializacao(modelos, competenciaDe(competencia));
+    if (plano.length === 0) return { error: null };
 
-  const { error } = await supabase
-    .from('empresa_obrigacao_ocorrencias')
-    .upsert(plano, { onConflict: 'obrigacao_id,competencia', ignoreDuplicates: true });
-  if (error) return { error: error.message };
+    const { error } = await supabase
+      .from('empresa_obrigacao_ocorrencias')
+      .upsert(plano, { onConflict: 'obrigacao_id,competencia', ignoreDuplicates: true });
+    if (error) return { error: error.message };
 
-  const dono = await meuUsuarioId();
-  if (!dono) return { error: null };  // sem linha em `usuarios`: a página funciona, só não espelha.
+    const dono = await meuUsuarioId();
+    if (!dono) {
+      // As ocorrências acima JÁ foram gravadas — isto não é "sem dado", é
+      // "sem dono pra espelhar". A mensagem tem que deixar as duas coisas claras.
+      return {
+        error: 'Não consegui identificar seu usuário — as obrigações foram salvas, '
+          + 'mas os lembretes no WhatsApp NÃO foram criados.',
+      };
+    }
 
-  const ocorrencias = await listarOcorrencias(competencia);
-  const nomePorId = new Map(modelos.map((m) => [m.id, m.nome]));
-  const espelhos = ocorrencias
-    .filter((o) => o.status === 'pendente')
-    .map((o) => ({
-      usuario_id: dono,
-      titulo: `Vence hoje: ${nomePorId.get(o.obrigacao_id) ?? 'obrigação da empresa'}`,
-      descricao: 'Obrigação da empresa (criado pela página /empresa).',
-      // 09:00 no fuso de SP — o mesmo formato que a agenda usa para compromisso único.
-      inicio_em: new Date(`${o.vencimento}T09:00:00-03:00`).toISOString(),
-      recorrencia: 'nenhuma' as const,
-      antecedencia_min: 60,
-      origem: 'empresa_obrigacao',
-      origem_id: o.id,
-    }));
-  if (espelhos.length === 0) return { error: null };
+    const ocorrencias = await listarOcorrencias(competencia);
+    const nomePorId = new Map(modelos.map((m) => [m.id, m.nome]));
+    const espelhos = montarEspelhos(ocorrencias, nomePorId, dono);
+    if (espelhos.length === 0) return { error: null };
 
-  const { error: erroAgenda } = await supabase
-    .from('agenda_compromissos')
-    .upsert(espelhos, { onConflict: 'origem,origem_id', ignoreDuplicates: true });
-  return { error: erroAgenda?.message ?? null };
+    const { error: erroAgenda } = await supabase
+      .from('agenda_compromissos')
+      .upsert(espelhos, { onConflict: 'origem,origem_id', ignoreDuplicates: true });
+    return { error: erroAgenda?.message ?? null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Falha ao carregar dados da empresa.' };
+  }
 }
 
 export async function listarOcorrencias(competencia: string): Promise<Ocorrencia[]> {
   const supabase = createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('empresa_obrigacao_ocorrencias').select(OCORRENCIA_COLS)
     .eq('competencia', competenciaDe(competencia))
     .order('vencimento');
+  if (error) throw new Error(error.message);
   return (data ?? []) as Ocorrencia[];
 }
 

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { reaisParaCentavos, validarCusto, alertaCertificado, type CustoInput } from './empresa-data';
-import { validarObrigacao, type ObrigacaoInput } from './empresa-data';
+import {
+  reaisParaCentavos, validarCusto, alertaCertificado, type CustoInput,
+  validarObrigacao, montarEspelhos, type ObrigacaoInput,
+} from './empresa-data';
+import type { Ocorrencia } from './obrigacoes';
 
 const input = (c: Partial<CustoInput>): CustoInput => ({
   nome: 'Vercel', categoria: 'infra', valor_reais: '20,00',
@@ -107,5 +110,56 @@ describe('validarObrigacao', () => {
 
   it('valor preenchido inválido é rejeitado', () => {
     expect(validarObrigacao(obrig({ valor_padrao_reais: 'abc' }))).toBe('Valor inválido.');
+  });
+});
+
+const ocorrencia = (o: Partial<Ocorrencia>): Ocorrencia => ({
+  id: 'oc-1', obrigacao_id: 'mod-1', competencia: '2026-07-01', vencimento: '2026-07-20',
+  valor_centavos: null, status: 'pendente', pago_em: null, comprovante_url: null, ...o,
+});
+
+describe('montarEspelhos', () => {
+  const nomePorId = new Map([['mod-1', 'DAS']]);
+
+  it('espelha só ocorrências pendentes (paga/dispensada ficam de fora)', () => {
+    const ocorrencias = [
+      ocorrencia({ id: 'oc-1', status: 'pendente' }),
+      ocorrencia({ id: 'oc-2', status: 'paga' }),
+      ocorrencia({ id: 'oc-3', status: 'dispensada' }),
+    ];
+    const espelhos = montarEspelhos(ocorrencias, nomePorId, 'usuario-1');
+    expect(espelhos.map((e) => e.origem_id)).toEqual(['oc-1']);
+  });
+
+  it('usa o nome do modelo no título, com fallback quando não encontra', () => {
+    const [comNome] = montarEspelhos([ocorrencia({})], nomePorId, 'usuario-1');
+    expect(comNome.titulo).toBe('Vence hoje: DAS');
+
+    const [semNome] = montarEspelhos([ocorrencia({ obrigacao_id: 'inexistente' })], nomePorId, 'usuario-1');
+    expect(semNome.titulo).toBe('Vence hoje: obrigação da empresa');
+  });
+
+  // M1: hora_base/dias_semana/dia_mes explícitos como null, espelhando payload()
+  // de lib/agenda-data.ts — não pode depender do default da coluna.
+  it('grava hora_base, dias_semana e dia_mes explicitamente como null', () => {
+    const [espelho] = montarEspelhos([ocorrencia({})], nomePorId, 'usuario-1');
+    expect(espelho.hora_base).toBeNull();
+    expect(espelho.dias_semana).toBeNull();
+    expect(espelho.dia_mes).toBeNull();
+    expect(espelho.recorrencia).toBe('nenhuma');
+  });
+
+  // M3: mesmo horário (09:00 -03:00) que o código antigo montava na mão,
+  // agora via spParaInstante — não duplicar o offset.
+  it('inicio_em é 09:00 no fuso de SP (meio-dia UTC)', () => {
+    const [espelho] = montarEspelhos([ocorrencia({ vencimento: '2026-07-20' })], nomePorId, 'usuario-1');
+    expect(espelho.inicio_em).toBe('2026-07-20T12:00:00.000Z');
+  });
+
+  it('origem e usuario_id vêm corretos pro upsert em (origem, origem_id)', () => {
+    const [espelho] = montarEspelhos([ocorrencia({ id: 'oc-9' })], nomePorId, 'usuario-1');
+    expect(espelho.origem).toBe('empresa_obrigacao');
+    expect(espelho.origem_id).toBe('oc-9');
+    expect(espelho.usuario_id).toBe('usuario-1');
   });
 });

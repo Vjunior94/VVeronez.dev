@@ -109,14 +109,23 @@ create table if not exists public.empresa_custos_fixos (
 --    cron de lembretes que JÁ EXISTE avisa no WhatsApp. O painel é o
 --    único escritor; a Sofia só lê.
 --    Índice único garante 1 compromisso por ocorrência (idempotente).
+--    CHEIO, sem `where origem is not null`: um índice parcial não é
+--    inferível pelo `ON CONFLICT (origem, origem_id)` que o
+--    supabase-js gera no upsert (o Postgres só infere índice a partir
+--    de ON CONFLICT sem `where` se o índice também não tiver `where`)
+--    — isso fazia TODO upsert do espelho falhar com 42P10. O `where`
+--    era redundante mesmo: Postgres trata NULLs como distintos entre
+--    si em índice único, então a forma cheia já permite infinitos
+--    compromissos normais com origem/origem_id nulos. Ver migration
+--    004 para o detalhe completo (esse bug já foi corrigido em
+--    produção lá).
 -- ------------------------------------------------------------
 alter table public.agenda_compromissos
   add column if not exists origem    text,
   add column if not exists origem_id uuid;
 
 create unique index if not exists agenda_origem_unica
-  on public.agenda_compromissos (origem, origem_id)
-  where origem is not null;
+  on public.agenda_compromissos (origem, origem_id);
 
 -- ------------------------------------------------------------
 -- 6. RLS — admin-only nas quatro. `enable` explícito: policy sem enable
