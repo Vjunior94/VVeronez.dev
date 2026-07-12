@@ -8,6 +8,11 @@
 > **Leia isto antes de mexer em auth, RLS, `proxy.ts` ou em qualquer coisa sob `app/(app)/`.**
 > Este banco **já sofreu um vazamento real por RLS aberta** (é para isso que a migration 001 existe).
 
+> **Recorrência sem data (§4.1) — código pronto na branch `feat/agenda-recorrencia`, ainda não
+> deployado.** Depende das migrations `003` (expand) e `004` (contract), que moram no **repo da
+> Sofia** (`db/migrations/`), porque o schema da agenda é dele. A **004 ainda NÃO foi aplicada** —
+> ver §8.
+
 ---
 
 ## 1. O que mudou no modelo de segurança
@@ -97,8 +102,42 @@ Três níveis, nesta ordem:
 - **`app/(app)/layout.tsx`** — menu mínimo (Agenda, Conta, Sair; + "Área admin" se `is_admin`).
 - `lib/agenda-data.ts` — contexto do usuário + CRUD via browser client. **Não faz checagem de escopo
   própria** — de propósito: a RLS decide, e duplicar a regra no cliente só cria uma segunda fonte de
-  verdade para divergir.
+  verdade para divergir. (`validarForm`, ali, é outra coisa: valida a **forma da regra**, não quem
+  pode ver o quê.)
+- `lib/ocorrencia.ts` — motor de recorrência (§4.2).
 - `lib/tempo.ts` — entrada em SP via offset fixo (`${data}T${hora}:00-03:00`), exibição via `Intl`.
+
+### 4.1 Agenda: recorrência sem data (mudou em 2026-07-12)
+
+`inicio_em` **deixou de fazer papel duplo**. Compromisso único tem data; recorrente tem só horário +
+regra de repetição — ninguém escolhe a "data de início" da hidratação.
+
+| `recorrencia` | `inicio_em` | `hora_base` | `dias_semana` | `dia_mes` |
+|---|---|---|---|---|
+| `nenhuma` (única) | **timestamptz** | null | null | null |
+| `diaria` | **null** | `time` | null | null |
+| `semanal` | **null** | `time` | **≥ 1 dia** (0=dom … 6=sáb) | null |
+| `mensal` | **null** | `time` | null | **1..31** |
+
+O formulário pergunta a **repetição primeiro** — ela decide quais campos aparecem: "Única" mostra
+Data; "Todo mês" mostra Dia do mês (com aviso de que meses curtos caem no último dia); "Toda semana"
+mostra os botões de dia. `validarForm` (em `lib/agenda-data.ts`) barra a regra incoerente **antes**
+do insert, com a mesma lógica do CHECK do banco e da `validarEntrada` do backend da Sofia.
+
+A lista é ordenada pela **próxima ocorrência** (calculada no cliente), não por `inicio_em` — que
+recorrente não tem. Por isso `listarCompromissos` faz `.order('criado_em')` no Postgres e a ordem de
+exibição é feita no React.
+
+### 4.2 `lib/ocorrencia.ts` — cópia do motor do backend ⚠️
+
+`proximaOcorrencia`, `ultimoDiaDoMes` e `descreverRegra`. É um **espelho** de
+`backend/src/agent/ocorrencia.ts` do repo da Sofia (`Vjunior94/sofia-secretaria`): mesmo algoritmo,
+mesmo offset SP fixo (−03:00), mesmo clamp de mensal (dia 31 → último dia do mês, sem virar
+permanente). **Não há monorepo nem pacote compartilhado: mudou aqui, mude lá — e vice-versa.**
+
+Por isso o dashboard ganhou **`vitest`** (`npm test` → `vitest run`, `lib/ocorrencia.test.ts`):
+copiar lógica de tempo sem teste foi exatamente como o bug de recorrência nasceu. `npm run build`
+não roda os testes — **rode `npm test` ao mexer em `lib/ocorrencia.ts`**.
 
 ---
 
@@ -149,3 +188,20 @@ Compromisso criado no painel → a Sofia lembra no WhatsApp; criado no WhatsApp 
 Ele **quebra o script nos `;` internos de um bloco `do $$ ... $$`**, deixando o `$$` sem fechar →
 `ERROR: 42601: syntax error at end of input`. **Evite blocos `do`** (escreva o DDL explícito) e use
 **tag única** no corpo de funções (`$fn$ ... $fn$`). A migration 002 foi reescrita por causa disso.
+
+---
+
+## 8. Rollout da recorrência sem data (expand/contract)
+
+O schema de `agenda_compromissos` é do **repo da Sofia** — as duas migrations vivem lá
+(`db/migrations/`), e o banco é o mesmo. O rollout é em duas etapas porque a Sofia está **no ar**:
+
+| migration (repo da Sofia) | o que faz | estado |
+|---|---|---|
+| `003_agenda_recorrencia.sql` — **expand** | adiciona `hora_base` (`time`) e `dia_mes` (`int`), `recorrencia` passa a aceitar `'mensal'`, backfill de `hora_base`, `inicio_em` vira **nullable** | aditiva e retrocompatível; pré-requisito do deploy |
+| `004_agenda_recorrencia_contract.sql` — **contract** | anula o `inicio_em` dos recorrentes e crava o CHECK da invariante (§4.1) | ⚠️ **AINDA NÃO APLICADA.** Depende do deploy. |
+
+**Ordem obrigatória: 003 → deploy do backend da Sofia → deploy do dashboard → 004.**
+O **backend vai primeiro**: o painel novo grava recorrente com `inicio_em = null`, e o backend antigo
+quebraria ao ler essa linha. Como um push na `main` daqui **deploya sozinho na Vercel**, pushar o
+dashboard antes do backend estar no ar **é o jeito de quebrar os lembretes em produção**.
