@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reaisParaCentavos, validarCusto, alertaCertificado, type CustoInput } from './empresa-data';
+import { validarObrigacao, type ObrigacaoInput } from './empresa-data';
 
 const input = (c: Partial<CustoInput>): CustoInput => ({
   nome: 'Vercel', categoria: 'infra', valor_reais: '20,00',
@@ -67,5 +68,44 @@ describe('alertaCertificado', () => {
 
   it('vencido é vencido', () => {
     expect(alertaCertificado({ validade: '2026-07-11' }, '2026-07-12')).toEqual({ dias: -1, nivel: 'vencido' });
+  });
+});
+
+const obrig = (o: Partial<ObrigacaoInput>): ObrigacaoInput => ({
+  nome: 'DAS', categoria: 'fiscal', orgao: 'Receita Federal', periodicidade: 'mensal',
+  dia_vencimento: 20, mes_vencimento: null, vencimento_unico: '',
+  valor_padrao_reais: '', link_portal: '', observacoes: '', ...o,
+});
+
+describe('validarObrigacao', () => {
+  it('mensal com dia válido passa; valor vazio = variável (DAS)', () => {
+    expect(validarObrigacao(obrig({}))).toBeNull();
+  });
+
+  it('nome vazio é rejeitado', () => {
+    expect(validarObrigacao(obrig({ nome: ' ' }))).toBe('Nome é obrigatório.');
+  });
+
+  it('mensal sem dia de vencimento é rejeitado', () => {
+    expect(validarObrigacao(obrig({ dia_vencimento: null }))).toBe('Escolha o dia do vencimento (1 a 31).');
+  });
+
+  // O input type=number aceita 15.5; a coluna é integer e o Postgres devolveria erro cru.
+  it('dia fracionário é rejeitado', () => {
+    expect(validarObrigacao(obrig({ dia_vencimento: 15.5 }))).toBe('Escolha o dia do vencimento (1 a 31).');
+  });
+
+  it('anual sem mês âncora é rejeitado', () => {
+    expect(validarObrigacao(obrig({ periodicidade: 'anual', mes_vencimento: null })))
+      .toBe('Obrigação anual precisa do mês de vencimento.');
+  });
+
+  it('única sem data é rejeitada', () => {
+    expect(validarObrigacao(obrig({ periodicidade: 'unica', vencimento_unico: '' })))
+      .toBe('Obrigação única precisa da data de vencimento.');
+  });
+
+  it('valor preenchido inválido é rejeitado', () => {
+    expect(validarObrigacao(obrig({ valor_padrao_reais: 'abc' }))).toBe('Valor inválido.');
   });
 });

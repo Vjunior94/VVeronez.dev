@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/client';
 import type { CustoFixo } from '@/lib/custos';
+import {
+  competenciaDe, planoDeMaterializacao,
+  type ModeloObrigacao, type Ocorrencia, type Periodicidade,
+} from '@/lib/obrigacoes';
 
 // SEM campo de senha em Portal — decisão de segurança da spec: o endpoint de auth do
 // Supabase é público, e um vazamento de admin viraria acesso ao e-CAC da empresa.
@@ -111,4 +115,154 @@ export async function removerCusto(id: string): Promise<{ error: string | null }
   const supabase = createClient();
   const { error } = await supabase.from('empresa_custos_fixos').update({ ativo: false }).eq('id', id);
   return { error: error?.message ?? null };
+}
+
+export type ObrigacaoInput = {
+  nome: string; categoria: ModeloObrigacao['categoria']; orgao: string;
+  periodicidade: Periodicidade;
+  dia_vencimento: number | null; mes_vencimento: number | null; vencimento_unico: string;
+  valor_padrao_reais: string; link_portal: string; observacoes: string;
+};
+
+const MODELO_COLS = 'id, nome, categoria, orgao, periodicidade, dia_vencimento, mes_vencimento, vencimento_unico, valor_padrao_centavos, link_portal, observacoes, ativo';
+const OCORRENCIA_COLS = 'id, obrigacao_id, competencia, vencimento, valor_centavos, status, pago_em, comprovante_url';
+
+/** Espelha os CHECKs do banco. Valor vazio = variável (caso do DAS) e é permitido. */
+export function validarObrigacao(input: ObrigacaoInput): string | null {
+  if (!input.nome.trim()) return 'Nome é obrigatório.';
+  if (input.periodicidade === 'unica' && !input.vencimento_unico) {
+    return 'Obrigação única precisa da data de vencimento.';
+  }
+  if (input.periodicidade !== 'unica'
+    && (!Number.isInteger(input.dia_vencimento) || (input.dia_vencimento as number) < 1 || (input.dia_vencimento as number) > 31)) {
+    return 'Escolha o dia do vencimento (1 a 31).';
+  }
+  if ((input.periodicidade === 'anual' || input.periodicidade === 'trimestral') && !input.mes_vencimento) {
+    return input.periodicidade === 'anual'
+      ? 'Obrigação anual precisa do mês de vencimento.'
+      : 'Obrigação trimestral precisa do mês de referência.';
+  }
+  if (input.valor_padrao_reais.trim() && reaisParaCentavos(input.valor_padrao_reais) == null) {
+    return 'Valor inválido.';
+  }
+  return null;
+}
+
+export async function listarModelos(): Promise<ModeloObrigacao[]> {
+  const supabase = createClient();
+  const { data } = await supabase.from('empresa_obrigacoes').select(MODELO_COLS).eq('ativo', true).order('nome');
+  return (data ?? []) as ModeloObrigacao[];
+}
+
+export async function salvarObrigacao(input: ObrigacaoInput, id?: string): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const unica = input.periodicidade === 'unica';
+  const payload = {
+    nome: input.nome.trim(),
+    categoria: input.categoria,
+    orgao: input.orgao || null,
+    periodicidade: input.periodicidade,
+    dia_vencimento: unica ? null : input.dia_vencimento,
+    mes_vencimento: (input.periodicidade === 'anual' || input.periodicidade === 'trimestral')
+      ? input.mes_vencimento : null,
+    vencimento_unico: unica ? input.vencimento_unico : null,
+    valor_padrao_centavos: input.valor_padrao_reais.trim()
+      ? reaisParaCentavos(input.valor_padrao_reais) : null,
+    link_portal: input.link_portal || null,
+    observacoes: input.observacoes || null,
+  };
+  const { error } = id
+    ? await supabase.from('empresa_obrigacoes').update({ ...payload, atualizado_em: new Date().toISOString() }).eq('id', id)
+    : await supabase.from('empresa_obrigacoes').insert(payload);
+  return { error: error?.message ?? null };
+}
+
+export async function removerObrigacao(id: string): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const { error } = await supabase.from('empresa_obrigacoes').update({ ativo: false }).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+/** A linha em `usuarios` ligada ao auth de quem está logado (dono do compromisso espelhado). */
+export async function meuUsuarioId(): Promise<string | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from('usuarios').select('id').eq('auth_user_id', user.id).maybeSingle();
+  return data?.id ?? null;
+}
+
+/**
+ * Garante que as ocorrências da competência existem, e espelha cada uma como
+ * compromisso na agenda — é assim que o cron de lembretes QUE JÁ EXISTE passa a
+ * avisar do DAS no WhatsApp, sem uma linha de código de lembrete aqui.
+ *
+ * Idempotente nas duas pontas: `ignoreDuplicates` no upsert bate no índice único
+ * (obrigacao_id, competencia) das ocorrências, e em (origem, origem_id) na agenda.
+ * Chamar dez vezes cria uma vez só.
+ */
+export async function garantirOcorrencias(competencia: string): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const modelos = await listarModelos();
+  const plano = planoDeMaterializacao(modelos, competenciaDe(competencia));
+  if (plano.length === 0) return { error: null };
+
+  const { error } = await supabase
+    .from('empresa_obrigacao_ocorrencias')
+    .upsert(plano, { onConflict: 'obrigacao_id,competencia', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+
+  const dono = await meuUsuarioId();
+  if (!dono) return { error: null };  // sem linha em `usuarios`: a página funciona, só não espelha.
+
+  const ocorrencias = await listarOcorrencias(competencia);
+  const nomePorId = new Map(modelos.map((m) => [m.id, m.nome]));
+  const espelhos = ocorrencias
+    .filter((o) => o.status === 'pendente')
+    .map((o) => ({
+      usuario_id: dono,
+      titulo: `Vence hoje: ${nomePorId.get(o.obrigacao_id) ?? 'obrigação da empresa'}`,
+      descricao: 'Obrigação da empresa (criado pela página /empresa).',
+      // 09:00 no fuso de SP — o mesmo formato que a agenda usa para compromisso único.
+      inicio_em: new Date(`${o.vencimento}T09:00:00-03:00`).toISOString(),
+      recorrencia: 'nenhuma' as const,
+      antecedencia_min: 60,
+      origem: 'empresa_obrigacao',
+      origem_id: o.id,
+    }));
+  if (espelhos.length === 0) return { error: null };
+
+  const { error: erroAgenda } = await supabase
+    .from('agenda_compromissos')
+    .upsert(espelhos, { onConflict: 'origem,origem_id', ignoreDuplicates: true });
+  return { error: erroAgenda?.message ?? null };
+}
+
+export async function listarOcorrencias(competencia: string): Promise<Ocorrencia[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from('empresa_obrigacao_ocorrencias').select(OCORRENCIA_COLS)
+    .eq('competencia', competenciaDe(competencia))
+    .order('vencimento');
+  return (data ?? []) as Ocorrencia[];
+}
+
+/** Marca a ocorrência como paga e conclui o compromisso espelhado (o painel é o único escritor). */
+export async function marcarPaga(id: string, valorReais: string, pagoEmISO: string): Promise<{ error: string | null }> {
+  const supabase = createClient();
+  const centavos = valorReais.trim() ? reaisParaCentavos(valorReais) : null;
+  if (valorReais.trim() && centavos == null) return { error: 'Valor inválido.' };
+
+  const patch: Record<string, unknown> = {
+    status: 'paga', pago_em: pagoEmISO, atualizado_em: new Date().toISOString(),
+  };
+  if (centavos != null) patch.valor_centavos = centavos;
+
+  const { error } = await supabase.from('empresa_obrigacao_ocorrencias').update(patch).eq('id', id);
+  if (error) return { error: error.message };
+
+  // Some da agenda: não faz sentido a Sofia cobrar no WhatsApp algo já pago.
+  const { error: erroAgenda } = await supabase.from('agenda_compromissos')
+    .update({ ativo: false }).eq('origem', 'empresa_obrigacao').eq('origem_id', id);
+  return { error: erroAgenda?.message ?? null };
 }
