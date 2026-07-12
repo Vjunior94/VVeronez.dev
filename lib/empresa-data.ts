@@ -17,7 +17,10 @@ export interface Endereco {
 export interface Contador {
   nome?: string; escritorio?: string; telefone?: string; email?: string; dia_fechamento?: number;
 }
-export interface Certificado { tipo?: 'A1' | 'A3'; emissor?: string; validade?: string }
+// validade: string | null (não só string | undefined) — M1: o <input type="date"> manda ''
+// ao ser limpo, e nós normalizamos pra null antes de salvar (coluna `date` do Postgres não
+// aceita '').
+export interface Certificado { tipo?: 'A1' | 'A3'; emissor?: string; validade?: string | null }
 
 export interface EmpresaDados {
   id: string;
@@ -39,22 +42,49 @@ export type CustoInput = {
 const EMPRESA_COLS = 'id, razao_social, nome_fantasia, cnpj, inscricao_estadual, inscricao_municipal, cnae_principal, cnaes_secundarios, regime_tributario, data_abertura, capital_social_centavos, endereco, contador, certificado, portais, documentos, cotacao_usd_centavos';
 const CUSTO_COLS = 'id, nome, categoria, valor_centavos, moeda, ciclo, dia_cobranca, url, ativo';
 
-/** "1.234,56" | "20.50" | "20" → centavos inteiros. null se não for número. */
+/** "1.234,56" | "20.50" | "20" → centavos inteiros. null se não for número, for AMBÍGUO
+ *  (ver comentário abaixo) ou for negativo. Não adivinha: em campo de dinheiro, chutar
+ *  errado é pior que rejeitar. Use `motivoValorInvalido` pra dar a mensagem certa. */
 export function reaisParaCentavos(v: string): number | null {
   const bruto = v.trim();
   if (!bruto) return null;
+  if (valorAmbiguo(bruto)) return null;
   // Só trata "." como separador de milhar quando há vírgula decimal ("1.234,56").
   // Sem vírgula, "." é o próprio separador decimal ("20.50") — remover ele quebraria esse formato.
   const limpo = bruto.includes(',') ? bruto.replace(/\./g, '').replace(',', '.') : bruto;
   const n = Number(limpo);
   if (!Number.isFinite(n)) return null;
+  if (n < 0) return null; // custo negativo REDUZ o total em vez de somar — não faz sentido aqui.
   // Math.round e não truncamento: 20.15 * 100 dá 2014.9999... em ponto flutuante.
   return Math.round(n * 100);
 }
 
+/** "1.200" sem vírgula é ambíguo: o brasileiro digita pensando em separador de milhar
+ *  (R$ 1.200,00) e sem vírgula decimal explícita não há como distinguir de "1 real e 200".
+ *  Regra: tem "." e NÃO tem "," (senão o formato BR "1.234,56" já resolve sozinho), e o
+ *  último grupo após o ponto tem exatamente 3 dígitos → ambíguo. "20.50" (2 dígitos) e
+ *  "20.5" continuam decimais normais — só o grupo de 3 dígitos é suspeito de milhar. */
+function valorAmbiguo(bruto: string): boolean {
+  if (!bruto.includes('.') || bruto.includes(',')) return false;
+  const grupos = bruto.split('.');
+  return /^\d{3}$/.test(grupos[grupos.length - 1]);
+}
+
+/** Mensagem específica pro porquê de `reaisParaCentavos` ter rejeitado — usada pelas
+ *  telas de validação (validarCusto/validarObrigacao) pra não devolver "Valor inválido."
+ *  genérico quando o problema real é ambiguidade ou sinal negativo. */
+function motivoValorInvalido(v: string): string {
+  const bruto = v.trim();
+  if (valorAmbiguo(bruto)) return 'Valor ambíguo: use vírgula para os centavos, ex.: 1200,00.';
+  const limpo = bruto.includes(',') ? bruto.replace(/\./g, '').replace(',', '.') : bruto;
+  const n = Number(limpo);
+  if (Number.isFinite(n) && n < 0) return 'Valor não pode ser negativo.';
+  return 'Valor inválido.';
+}
+
 export function validarCusto(input: CustoInput): string | null {
   if (!input.nome.trim()) return 'Nome é obrigatório.';
-  if (reaisParaCentavos(input.valor_reais) == null) return 'Valor inválido.';
+  if (reaisParaCentavos(input.valor_reais) == null) return motivoValorInvalido(input.valor_reais);
   if (input.dia_cobranca != null
     && (!Number.isInteger(input.dia_cobranca) || input.dia_cobranca < 1 || input.dia_cobranca > 31)) {
     return 'Dia da cobrança deve ficar entre 1 e 31.';
@@ -142,13 +172,19 @@ export function validarObrigacao(input: ObrigacaoInput): string | null {
     && (!Number.isInteger(input.dia_vencimento) || (input.dia_vencimento as number) < 1 || (input.dia_vencimento as number) > 31)) {
     return 'Escolha o dia do vencimento (1 a 31).';
   }
-  if ((input.periodicidade === 'anual' || input.periodicidade === 'trimestral') && !input.mes_vencimento) {
-    return input.periodicidade === 'anual'
-      ? 'Obrigação anual precisa do mês de vencimento.'
-      : 'Obrigação trimestral precisa do mês de referência.';
+  if (input.periodicidade === 'anual' || input.periodicidade === 'trimestral') {
+    if (!input.mes_vencimento) {
+      return input.periodicidade === 'anual'
+        ? 'Obrigação anual precisa do mês de vencimento.'
+        : 'Obrigação trimestral precisa do mês de referência.';
+    }
+    // M2: sem isto, digitar 99 vira violação de CHECK crua do Postgres em vez de mensagem em pt-BR.
+    if (!Number.isInteger(input.mes_vencimento) || input.mes_vencimento < 1 || input.mes_vencimento > 12) {
+      return 'Mês de vencimento deve ficar entre 1 e 12.';
+    }
   }
   if (input.valor_padrao_reais.trim() && reaisParaCentavos(input.valor_padrao_reais) == null) {
-    return 'Valor inválido.';
+    return motivoValorInvalido(input.valor_padrao_reais);
   }
   return null;
 }

@@ -30,6 +30,26 @@ describe('reaisParaCentavos', () => {
   it('arredonda o centavo em vez de truncar', () => {
     expect(reaisParaCentavos('20,15')).toBe(2015);
   });
+
+  // I2: "1.200" sem vírgula é ambíguo (mil e duzentos reais, ou 1,20 com ponto decimal?).
+  // Adivinhar errado aqui é um erro de 1000x, silencioso, num campo de dinheiro — rejeita.
+  it('rejeita "1.200" (ambíguo: sem vírgula, três dígitos após o ponto)', () => {
+    expect(reaisParaCentavos('1.200')).toBeNull();
+    expect(reaisParaCentavos('12.345')).toBeNull();
+  });
+
+  it('continua aceitando decimal com ponto (dois dígitos não é ambíguo)', () => {
+    expect(reaisParaCentavos('20.50')).toBe(2050);
+  });
+
+  it('continua aceitando formato BR com milhar e decimal', () => {
+    expect(reaisParaCentavos('1.234,56')).toBe(123456);
+  });
+
+  it('rejeita valor negativo', () => {
+    expect(reaisParaCentavos('-50')).toBeNull();
+    expect(reaisParaCentavos('-50,00')).toBeNull();
+  });
 });
 
 describe('validarCusto', () => {
@@ -52,6 +72,15 @@ describe('validarCusto', () => {
 
   it('dia de cobrança vazio é aceito (é opcional)', () => {
     expect(validarCusto(input({ dia_cobranca: null }))).toBeNull();
+  });
+
+  it('valor ambíguo ("1.200") tem mensagem específica, não "Valor inválido." genérico', () => {
+    expect(validarCusto(input({ valor_reais: '1.200' })))
+      .toBe('Valor ambíguo: use vírgula para os centavos, ex.: 1200,00.');
+  });
+
+  it('valor negativo tem mensagem específica', () => {
+    expect(validarCusto(input({ valor_reais: '-50' }))).toBe('Valor não pode ser negativo.');
   });
 });
 
@@ -103,6 +132,25 @@ describe('validarObrigacao', () => {
       .toBe('Obrigação anual precisa do mês de vencimento.');
   });
 
+  // M2: sem isto, 99 vira violação de CHECK crua do Postgres em vez de mensagem em pt-BR.
+  it('mês de vencimento fora de 1..12 é rejeitado', () => {
+    expect(validarObrigacao(obrig({ periodicidade: 'anual', mes_vencimento: 99 })))
+      .toBe('Mês de vencimento deve ficar entre 1 e 12.');
+    expect(validarObrigacao(obrig({ periodicidade: 'trimestral', mes_vencimento: 13 })))
+      .toBe('Mês de vencimento deve ficar entre 1 e 12.');
+  });
+
+  // 0 é falsy: cai no mesmo branch de "não preenchido" (mensagem já coberta acima),
+  // não no range check — comportamento correto, só documentando a fronteira.
+  it('mês de vencimento zero é tratado como não preenchido', () => {
+    expect(validarObrigacao(obrig({ periodicidade: 'trimestral', mes_vencimento: 0 })))
+      .toBe('Obrigação trimestral precisa do mês de referência.');
+  });
+
+  it('mês de vencimento válido passa', () => {
+    expect(validarObrigacao(obrig({ periodicidade: 'anual', mes_vencimento: 12 }))).toBeNull();
+  });
+
   it('única sem data é rejeitada', () => {
     expect(validarObrigacao(obrig({ periodicidade: 'unica', vencimento_unico: '' })))
       .toBe('Obrigação única precisa da data de vencimento.');
@@ -110,6 +158,11 @@ describe('validarObrigacao', () => {
 
   it('valor preenchido inválido é rejeitado', () => {
     expect(validarObrigacao(obrig({ valor_padrao_reais: 'abc' }))).toBe('Valor inválido.');
+  });
+
+  it('valor preenchido ambíguo é rejeitado com mensagem específica', () => {
+    expect(validarObrigacao(obrig({ valor_padrao_reais: '1.200' })))
+      .toBe('Valor ambíguo: use vírgula para os centavos, ex.: 1200,00.');
   });
 });
 

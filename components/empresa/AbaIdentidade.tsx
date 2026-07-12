@@ -49,7 +49,15 @@ export default function AbaIdentidade({ empresa, onSalvo }: {
   const salvar = async () => {
     setSalvando(true); setErro('');
     const { id, ...dados } = e;
-    const { error } = await salvarEmpresa(id, dados);
+    // M1: limpar um <input type="date"> dispara onChange com '', e a coluna do Postgres é
+    // `date` — mandar '' pra lá estoura "invalid input syntax for type date: \"\"" cru na
+    // tela. Normaliza toda data vazia pra null (que a coluna aceita) antes do PATCH.
+    const payload: typeof dados = {
+      ...dados,
+      data_abertura: dados.data_abertura || null,
+      certificado: { ...dados.certificado, validade: dados.certificado.validade || null },
+    };
+    const { error } = await salvarEmpresa(id, payload);
     setSalvando(false);
     if (error) setErro(error); else onSalvo();
   };

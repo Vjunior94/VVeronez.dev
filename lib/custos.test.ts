@@ -52,14 +52,50 @@ describe('custoFixoTotalMensal', () => {
 });
 
 describe('custoObrigacoesMensal', () => {
-  it('soma só obrigações mensais ativas de valor FIXO', () => {
+  it('soma mensal (valor cheio), variável (null) fica de fora, e inativa fica de fora', () => {
     const total = custoObrigacoesMensal([
       modelo({ id: 'contador', valor_padrao_centavos: 90000 }),
-      modelo({ id: 'das', valor_padrao_centavos: null }),          // variável: não entra
-      modelo({ id: 'defis', periodicidade: 'anual', mes_vencimento: 5, valor_padrao_centavos: 30000 }), // não é mensal
-      modelo({ id: 'velha', valor_padrao_centavos: 50000, ativo: false }),  // inativa
+      modelo({ id: 'das', valor_padrao_centavos: null }),                 // variável: não entra
+      modelo({ id: 'velha', valor_padrao_centavos: 50000, ativo: false }), // inativa: não entra
     ]);
     expect(total).toBe(90000);
+  });
+
+  // I1: uma obrigação anual (ex.: renovação do certificado digital, R$ 1.200/ano) pesa no
+  // orçamento tanto quanto uma assinatura anual — e essa já é diluída ÷12 em custoMensalEmBRL.
+  it('anual é diluído ÷12', () => {
+    const total = custoObrigacoesMensal([
+      modelo({ id: 'certificado', periodicidade: 'anual', mes_vencimento: 1, valor_padrao_centavos: 120000 }),
+    ]);
+    expect(total).toBe(10000); // 1200,00 / 12 = 100,00/mês
+  });
+
+  // Trimestral vence 4x ao ano — dilui ÷3, não ÷12.
+  it('trimestral é diluído ÷3 (vence 4x ao ano)', () => {
+    const total = custoObrigacoesMensal([
+      modelo({ id: 'irpj', periodicidade: 'trimestral', mes_vencimento: 1, valor_padrao_centavos: 30000 }),
+    ]);
+    expect(total).toBe(10000); // 300,00 / 3 = 100,00/mês
+  });
+
+  // 'unica' não é recorrente — não faz sentido diluir num "custo fixo mensal".
+  it('única fica de fora (não é recorrente)', () => {
+    const total = custoObrigacoesMensal([
+      modelo({ id: 'abertura', periodicidade: 'unica', vencimento_unico: '2026-01-10', valor_padrao_centavos: 60000 }),
+    ]);
+    expect(total).toBe(0);
+  });
+
+  it('soma mensal + anual + trimestral juntos, ignorando variável/inativa/única', () => {
+    const total = custoObrigacoesMensal([
+      modelo({ id: 'contador', periodicidade: 'mensal', valor_padrao_centavos: 90000 }),
+      modelo({ id: 'certificado', periodicidade: 'anual', mes_vencimento: 1, valor_padrao_centavos: 120000 }),
+      modelo({ id: 'irpj', periodicidade: 'trimestral', mes_vencimento: 1, valor_padrao_centavos: 30000 }),
+      modelo({ id: 'das', valor_padrao_centavos: null }),
+      modelo({ id: 'velha', valor_padrao_centavos: 50000, ativo: false }),
+      modelo({ id: 'abertura', periodicidade: 'unica', vencimento_unico: '2026-01-10', valor_padrao_centavos: 60000 }),
+    ]);
+    expect(total).toBe(90000 + 10000 + 10000);
   });
 });
 

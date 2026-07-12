@@ -48,10 +48,21 @@ export default function AbaObrigacoes() {
   const recarregar = useCallback(async (comp: string) => {
     setLoading(true); setErro('');
     const primeiroDia = `${comp}-01`;
-    // Materializa antes de listar — idempotente pelo índice único no banco.
-    // garantirOcorrencias() captura os próprios erros e devolve { error }.
-    const { error: erroGarantir } = await garantirOcorrencias(primeiroDia);
-    if (erroGarantir) setErro(erroGarantir);
+
+    // C1 — NUNCA materializar o PASSADO. `recarregar` roda a cada troca do seletor de mês,
+    // inclusive quando é só pra OLHAR o histórico. garantirOcorrencias() grava uma ocorrência
+    // "pendente" de verdade (idempotente, mas persistente) e espelha um compromisso na
+    // `agenda_compromissos` de PRODUÇÃO — a Sofia manda lembrete no WhatsApp do Valmir pra
+    // uma dívida que já passou e nunca existiu de fato. Não há como desfazer isso pela UI.
+    // Comparação de string funciona porque as duas datas são ISO "YYYY-MM-DD" (dia 1 do mês).
+    // Mês futuro PODE materializar: é inofensivo (idempotente) e adianta o cadastro.
+    // Se um dia alguém for "otimizar" isto pra materializar o mês olhado — não faça, é o bug do C1.
+    if (primeiroDia >= competenciaDe(hojeISO())) {
+      // Materializa antes de listar — idempotente pelo índice único no banco.
+      // garantirOcorrencias() captura os próprios erros e devolve { error }.
+      const { error: erroGarantir } = await garantirOcorrencias(primeiroDia);
+      if (erroGarantir) setErro(erroGarantir);
+    }
 
     // listarModelos/listarOcorrencias LANÇAM em erro de query (ver lib/empresa-data.ts) —
     // sem o try/catch aqui vira unhandled rejection e a tela mostra "nenhuma obrigação"

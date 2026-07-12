@@ -26,12 +26,23 @@ export function custoFixoTotalMensal(custos: CustoFixo[], cotacaoUsdCentavos: nu
     .reduce((soma, c) => soma + custoMensalEmBRL(c, cotacaoUsdCentavos), 0);
 }
 
-/** Obrigações entram no custo fixo só quando são mensais E têm valor conhecido.
- *  O DAS (valor variável) fica de fora: chutar um número aqui seria pior que omitir. */
+/** Obrigações entram no custo fixo quando são RECORRENTES de valor FIXO conhecido.
+ *  A spec pede "soma das obrigações recorrentes de valor fixo", não "só as mensais": uma
+ *  obrigação anual (ex.: renovação do certificado digital) pesa tanto no orçamento quanto
+ *  uma assinatura anual — e essa já é diluída acima, em `custoMensalEmBRL`. Diluímos aqui
+ *  do mesmo jeito: anual ÷12, trimestral ÷3 (vence 4x/ano). `unica` fica de fora (não é
+ *  recorrente) e o DAS (valor variável, `valor_padrao_centavos = null`) fica de fora:
+ *  chutar um número aqui seria pior que omitir. */
 export function custoObrigacoesMensal(modelos: ModeloObrigacao[]): number {
   return modelos
-    .filter((m) => m.ativo && m.periodicidade === 'mensal' && m.valor_padrao_centavos != null)
-    .reduce((soma, m) => soma + (m.valor_padrao_centavos ?? 0), 0);
+    .filter((m) => m.ativo && m.valor_padrao_centavos != null)
+    .reduce((soma, m) => {
+      const valor = m.valor_padrao_centavos ?? 0;
+      if (m.periodicidade === 'mensal') return soma + valor;
+      if (m.periodicidade === 'anual') return soma + Math.round(valor / 12);
+      if (m.periodicidade === 'trimestral') return soma + Math.round(valor / 3);
+      return soma; // 'unica': não é recorrente, não entra no custo fixo mensal.
+    }, 0);
 }
 
 /** As `quantos` últimas competências (YYYY-MM-01), do mais antigo ao mês corrente. */
