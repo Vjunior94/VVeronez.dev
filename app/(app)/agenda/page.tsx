@@ -188,7 +188,11 @@ export default function AgendaPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: 'var(--gold-100)', fontSize: '0.9rem' }}>{c.titulo}</div>
                 <div style={{ display: 'flex', gap: '0.8rem', fontSize: '0.72rem', color: 'var(--text-dim)', flexWrap: 'wrap' }}>
-                  <span>{occ ? formatarInstanteSP(occ.toISOString()) : 'já passou'}</span>
+                  {/* Único já passado nunca é desativado: sem próxima ocorrência, mostra a data real
+                      (só existe em inicio_em) em vez de sumir com a informação. */}
+                  <span>{occ ? formatarInstanteSP(occ.toISOString())
+                    : c.inicio_em ? `${formatarInstanteSP(c.inicio_em)} · já passou`
+                    : 'já passou'}</span>
                   {c.recorrencia !== 'nenhuma' && <span>{descreverRegra(c)}</span>}
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Clock size={11} /> {c.antecedencia_min}min</span>
                   {ctx?.isAdmin && escopo === 'todos' && <span>· {nomeDoUsuario(c.usuario_id)}</span>}

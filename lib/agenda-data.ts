@@ -24,7 +24,10 @@ export function validarForm(input: FormInput): string | null {
   if (!input.hora) return 'Hora é obrigatória.';
   if (input.recorrencia === 'nenhuma' && !input.data) return 'Compromisso único precisa de data.';
   if (input.recorrencia === 'semanal' && input.dias_semana.length === 0) return 'Escolha pelo menos um dia da semana.';
-  if (input.recorrencia === 'mensal' && (!input.dia_mes || input.dia_mes < 1 || input.dia_mes > 31)) {
+  // dia_mes é integer no banco: 15.5 (o input number aceita) voltaria como
+  // "invalid input syntax for type integer". Exige inteiro, igual à Sofia.
+  if (input.recorrencia === 'mensal'
+    && (!Number.isInteger(input.dia_mes) || input.dia_mes < 1 || input.dia_mes > 31)) {
     return 'Escolha o dia do mês (1 a 31).';
   }
   return null;

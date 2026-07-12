@@ -58,6 +58,58 @@ describe('proximaOcorrencia', () => {
   });
 });
 
+// Linhas legadas (criadas antes da migration 003): recorrente com hora_base NULL e
+// inicio_em preenchido. A hora base tem que ser derivada de inicio_em.
+describe('proximaOcorrencia — recorrente legado sem hora_base', () => {
+  it('diária: deriva a hora de inicio_em (já passou hoje → amanhã)', () => {
+    const r = proximaOcorrencia(regra({
+      recorrencia: 'diaria', hora_base: null,
+      inicio_em: new Date(spIso('2026-07-01T09:00:00')).toISOString(),
+    }), agora);
+    expect(r?.getTime()).toBe(spIso('2026-07-12T09:00:00'));
+  });
+
+  it('diária: deriva a hora de inicio_em (ainda vem hoje)', () => {
+    const r = proximaOcorrencia(regra({
+      recorrencia: 'diaria', hora_base: null,
+      inicio_em: new Date(spIso('2026-07-01T15:30:00')).toISOString(),
+    }), agora);
+    expect(r?.getTime()).toBe(spIso('2026-07-11T15:30:00'));
+  });
+
+  it('semanal: deriva a hora de inicio_em', () => {
+    const r = proximaOcorrencia(regra({
+      recorrencia: 'semanal', hora_base: null, dias_semana: [1, 3, 5],
+      inicio_em: new Date(spIso('2026-06-01T07:00:00')).toISOString(),
+    }), agora);
+    expect(r?.getTime()).toBe(spIso('2026-07-13T07:00:00'));
+  });
+
+  it('mensal: deriva a hora de inicio_em', () => {
+    const r = proximaOcorrencia(regra({
+      recorrencia: 'mensal', hora_base: null, dia_mes: 20,
+      inicio_em: new Date(spIso('2026-06-20T08:00:00')).toISOString(),
+    }), agora);
+    expect(r?.getTime()).toBe(spIso('2026-07-20T08:00:00'));
+  });
+
+  it('hora_base inválida mas com inicio_em: usa inicio_em', () => {
+    const r = proximaOcorrencia(regra({
+      recorrencia: 'diaria', hora_base: 'lixo',
+      inicio_em: new Date(spIso('2026-07-01T15:30:00')).toISOString(),
+    }), agora);
+    expect(r?.getTime()).toBe(spIso('2026-07-11T15:30:00'));
+  });
+
+  it('sem hora_base e sem inicio_em: null', () => {
+    expect(proximaOcorrencia(regra({ recorrencia: 'diaria', hora_base: null, inicio_em: null }), agora)).toBeNull();
+  });
+
+  it('sem hora_base e inicio_em inválido: null', () => {
+    expect(proximaOcorrencia(regra({ recorrencia: 'diaria', hora_base: null, inicio_em: 'não é data' }), agora)).toBeNull();
+  });
+});
+
 describe('descreverRegra', () => {
   it('diária', () => {
     expect(descreverRegra(regra({ recorrencia: 'diaria', hora_base: '10:00:00' }))).toBe('todo dia às 10:00');

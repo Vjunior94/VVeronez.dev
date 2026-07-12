@@ -38,6 +38,18 @@ function parseHoraBase(hb: string | null): { hora: number; minuto: number } | nu
   return { hora, minuto };
 }
 
+/**
+ * Fallback para linhas legadas (criadas antes da migration 003): recorrente com
+ * hora_base NULL e inicio_em preenchido. A hora base é a hora de inicio_em em SP.
+ */
+function horaBaseDeInicio(inicioEm: string | null): { hora: number; minuto: number } | null {
+  if (!inicioEm) return null;
+  const d = new Date(inicioEm);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = partesSP(d);
+  return { hora: p.hora, minuto: p.minuto };
+}
+
 export function proximaOcorrencia(regra: RegraOcorrencia, agora: Date): Date | null {
   if (regra.recorrencia === 'nenhuma') {
     if (!regra.inicio_em) return null;
@@ -45,7 +57,8 @@ export function proximaOcorrencia(regra: RegraOcorrencia, agora: Date): Date | n
     return inicio.getTime() >= agora.getTime() ? inicio : null;
   }
 
-  const base = parseHoraBase(regra.hora_base);
+  // Recorrente: hora_base é a fonte; se faltar (legado), deriva de inicio_em.
+  const base = parseHoraBase(regra.hora_base) ?? horaBaseDeInicio(regra.inicio_em);
   if (!base) return null;
   const hoje = partesSP(agora);
 
